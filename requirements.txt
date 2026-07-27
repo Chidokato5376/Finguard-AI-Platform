@@ -1,90 +1,12 @@
-# --- Core ---
-# ⚠ CHẶN TRÊN numpy<2 CÓ CHỦ ĐÍCH — đã xác minh qua kiểm thử thực tế:
-# torch 2.2.x được biên dịch với numpy 1.x và sẽ báo lỗi runtime khó hiểu
-# "RuntimeError: Numpy is not available" nếu môi trường có numpy 2.x. Lỗi này
-# KHÔNG xuất hiện lúc cài đặt, chỉ nổ ra khi chạy — cụ thể ở module VQC
-# (src/quantum/vqc.py) nơi TorchConnector cần torch và qiskit-machine-learning
-# hoạt động đồng thời.
-#
-# Lưu ý: qiskit-machine-learning 0.8.x KHAI BÁO yêu cầu numpy>=2.0, nên pip sẽ
-# in cảnh báo "requires numpy>=2.0, but you have numpy 1.26.x". BỎ QUA cảnh báo
-# đó — thực nghiệm cho thấy 0.8.4 chạy đúng với numpy 1.26.4 (toàn bộ test pass).
-# Tuyệt đối KHÔNG "sửa" cảnh báo bằng cách nâng numpy lên 2.x: điều đó phá torch.
-numpy>=1.26,<2
+# Gói dependency GỌN cho bản public dashboard (chế độ Heuristic Scorer).
+# KHÔNG gồm torch / torch-geometric / qiskit* / dwave-neal — nhánh heuristic
+# của dashboard không cần chúng, và các nền miễn phí (Streamlit Cloud) sẽ
+# fail nếu phải build cả stack nặng đó.
+streamlit>=1.40
 pandas>=2.2
-pyarrow>=15.0                  # đọc/ghi .parquet (data/processed/)
-pyyaml>=6.0
-python-dotenv>=1.0
-
-# --- Deep Learning (Behavior Memory, Graph Encoder, Adaptive Fusion) ---
-torch>=2.2
-torch-geometric>=2.5          # GraphSAGE / GAT
-networkx>=3.2                 # phân tích đồ thị cổ điển ở giai đoạn prototype
-
-# --- Classical ML (fine-tune bán giám sát, baselines) ---
-scikit-learn>=1.4
-
-# --- Quantum (DRRE §4.5, QAPE Module 8) ---
-# ⚠ PHIÊN BẢN GHIM CÓ CHỦ ĐÍCH — ĐÂY LÀ SỰ CỐ THẬT ĐÃ XẢY RA, không phải
-# rủi ro lý thuyết: trong quá trình phát triển, một lệnh `pip install
-# qiskit-machine-learning` chạy RIÊNG LẺ (không kèm các gói khác trong
-# khối này cùng lúc) đã âm thầm nâng cấp qiskit từ 1.4.6 lên 2.5.0 mà
-# KHÔNG báo lỗi cài đặt nào — vì pip chỉ resolve ràng buộc của LỆNH ĐANG
-# CHẠY, không tự động bảo vệ ràng buộc của các gói đã cài từ trước
-# (qiskit-algorithms==0.4.0, bắt buộc qiskit<2.0). Hậu quả: QAOA
-# (src/qape/solvers.py::solve_qaoa) từ chạy ~2s cho 13 qubit tụt xuống
-# KHÔNG HOÀN THÀNH SAU 150s — không có exception, không có cảnh báo, chỉ
-# âm thầm rất chậm. Cài lại đúng bộ ghim dưới đây (một lệnh, một lần)
-# khôi phục hiệu năng ngay lập tức.
-#
-# QUY TẮC BẮT BUỘC: LUÔN cài toàn bộ khối qiskit* này trong MỘT lệnh pip
-# install duy nhất (hoặc `pip install -r requirements.txt`), KHÔNG cài lẻ
-# từng gói qiskit-* một cách rời rạc trong các lệnh riêng biệt — kể cả
-# khi chỉ cần thêm một tính năng nhỏ (vd. chỉ cần EstimatorQNN cho VQC).
-#
-# qiskit>=2.0 đã bỏ hẳn API primitives V1 mà qiskit-algorithms 0.4.0 (bản
-# mới nhất trên PyPI tính đến thời điểm viết) phụ thuộc để chạy QAOA,
-# gây lỗi "Invalid circuits, expected Sequence[QuantumCircuit]" khó hiểu.
-# Nếu nâng cấp qiskit trong tương lai, kiểm tra lại toàn bộ src/qape/solvers.py.
-qiskit>=1.0,<2.0
-qiskit-machine-learning>=0.7,<0.9   # FidelityQuantumKernel / EstimatorQNN — xem cảnh báo dưới
-# qiskit-machine-learning>=0.9 bắt buộc qiskit>=2.0, xung đột trực tiếp với
-# qiskit-algorithms==0.4.0 (bắt buộc qiskit<2.0, dùng cho QAOA — xem
-# src/qape/solvers.py). Đã xác nhận qua cài đặt thực tế: `pip install
-# qiskit-machine-learning>=0.7` (không ghim trần) tự động kéo về 0.9.0 và
-# NÂNG CẤP qiskit lên 2.5.0 một cách ÂM THẦM, phá vỡ QAOA dù không có lỗi
-# cài đặt nào được báo. 0.8.4 là bản cuối cùng còn yêu cầu qiskit<2.0,>=1.0 —
-# khớp chính xác với mọi ràng buộc khác trong file này.
-# Kiểm tra nhanh môi trường hiện tại có đúng không:
-#   pip list | grep qiskit
-#   # Kỳ vọng: qiskit 1.x, qiskit-machine-learning 0.8.x, qiskit-algorithms 0.4.0
-qiskit-optimization>=0.6       # QuadraticProgram / QUBO
-qiskit-algorithms==0.4.0       # QAOA — ghim chính xác, xem cảnh báo trên
-qiskit-aer>=0.13               # AerSimulator (dùng cho quantum_kernel.py)
-dwave-neal>=0.6                # Simulated Annealing cổ điển cho QUBO (src/qape/solvers.py)
-
-# --- Classical combinatorial baselines (QAPE benchmark) ---
-ortools>=9.9
-pulp>=2.8
-
-# --- Explainability ---
-shap>=0.45                     # đầu dò bán giám sát phụ, không phải nguồn giải thích chính
-
-# --- Backend / Dashboard ---
-fastapi>=0.110
-uvicorn>=0.29
-streamlit>=1.33
+numpy>=1.26,<2
+pyarrow>=15
 plotly>=5.20
-
-# --- Database ---
-sqlalchemy>=2.0
-psycopg2-binary>=2.9
-
-# --- Testing ---
-pytest>=8.0
-pytest-cov>=5.0
-
-# --- Dev tooling ---
-black>=24.0
-ruff>=0.4
-mypy>=1.9
+networkx>=3.2
+pulp>=2.8
+matplotlib>=3.7          # pandas Styler.background_gradient (tô màu bảng cảnh báo ở Khối 1)

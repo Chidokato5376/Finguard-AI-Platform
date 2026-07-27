@@ -1,8 +1,9 @@
-# Data (không commit dữ liệu thô/đã xử lý — chỉ commit schema & script)
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# .gitignore CẤP GỐC — chỉ chặn rác chung ở gốc repository.
+# Mỗi dự án con có .gitignore RIÊNG với quy tắc phù hợp của nó:
+#   - Finguard/.gitignore       : loại data/raw, data/processed, models (dự án chính)
+#   - Finguard-Demo/.gitignore  : GIỮ data/processed (demo cần dữ liệu để hiển thị)
+# Git áp dụng .gitignore theo phạm vi thư mục chứa nó nên hai bộ quy tắc trên
+# không ảnh hưởng lẫn nhau — KHÔNG thêm quy tắc data/ hay models/ vào file này.
 
 # Python
 __pycache__/
@@ -17,17 +18,12 @@ venv/
 # Notebooks
 .ipynb_checkpoints/
 
-# Models / checkpoints
-*.pt
-*.pth
-*.ckpt
-models/
-
 # Environment
 .env
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .vscode/

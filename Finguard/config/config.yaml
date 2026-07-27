@@ -1,0 +1,78 @@
+# FinGuard AI — cấu hình trung tâm
+# Mọi hyperparameter mặc định được lấy từ đặc tả kỹ thuật (docs/architecture.md).
+# Không hard-code các giá trị này trong src/ — luôn đọc qua config.
+
+data:
+  sources:
+    paysim:
+      path: "data/raw/paysim.csv"
+      role: ["behavior_memory", "graph_encoder"]
+    ieee_cis:
+      path: "data/raw/ieee_cis_transaction.csv"
+      role: ["behavior_memory", "auxiliary_bce"]
+    synthetic_vn:
+      path: "data/raw/synthetic_vn.csv"
+      role: ["concept_drift_test"]
+  split:
+    method: "time_based"          # KHÔNG dùng random split — tránh temporal leakage (Mục 3.4)
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+drre:
+  behavior_memory:
+    hidden_dim: 64
+    num_slots: 4                  # K slot cho memory-augmented (bỏ nếu MVP cần đơn giản hóa)
+    decay_init: 0.1
+  attention:
+    key_dim: 64                   # d trong q_t · m_k / sqrt(d)
+  graph_encoder:
+    type: "GraphSAGE"             # "GraphSAGE" | "GAT"
+    num_layers: 2                 # L
+    hidden_dim: 64
+  fusion:
+    embedding_dim: 128            # chiều của e_t^c cuối cùng
+  loss:
+    target_network: "ema"         # BẮT BUỘC: cơ chế chống collapse cho L_pred — xem src/drre/losses.py
+    ema_decay: 0.996
+    lambda_contrast: 0.5          # λ1
+    lambda_bce: 0.3                # λ2
+    contrastive_temperature: 0.1   # τ
+
+risk_scoring:
+  thresholds:
+    low_max: 30
+    medium_max: 70
+    # 71-100 = Critical
+
+quantum:
+  enabled: false                  # bật khi đã benchmark thấy cải thiện AUPRC thực sự
+  kernel:
+    backend: "AerSimulator"
+    max_qubits: 12                 # giới hạn thực tế của simulator (10-16 qubit hiệu quả)
+    pca_components: 12             # nén embedding trước khi đưa vào mạch
+  vqc:
+    enabled: false
+    ansatz_reps: 2
+    optimizer: "COBYLA"
+
+qape:
+  window_minutes: 15
+  resource_budget_C: 100.0
+  critical_threshold: 90          # r_i >= 90 -> bắt buộc x_i = 1
+  qubo_penalty:
+    lambda_1: 5.0                 # ràng buộc ngân sách — CẦN sensitivity analysis, xem docs
+    lambda_2: 10.0                # ràng buộc critical alert
+  qaoa:
+    p_layers: 2
+    optimizer: "COBYLA"
+    max_qubits: 25                # 20-30 cảnh báo mỗi lô là giới hạn thực tế của simulator
+
+evaluation:
+  metrics: ["auprc", "cold_start_auprc", "concept_drift_recall_drop",
+            "qaoa_approximation_ratio", "constraint_violation_rate",
+            "decision_agreement_rate"]
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"

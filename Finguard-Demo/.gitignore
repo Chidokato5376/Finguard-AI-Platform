@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+models/
+data/raw/
+# LƯU Ý: KHÔNG ignore data/processed/ — dashboard cần các file .parquet
+# synthetic_vn được commit kèm để hiển thị dữ liệu khi deploy.
