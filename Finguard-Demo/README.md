@@ -2,12 +2,12 @@
 
 > **Bản demo công khai của nền tảng Quản trị Rủi ro Giao dịch FinGuard AI**
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://finguard-ai-demo-cfjsgsbg3qxf4zkv7j2xde.streamlit.app/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://finguard-ai-platform.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Mode](https://img.shields.io/badge/Scoring-Heuristic-blue?style=flat-square)]()
 
-**🔗 Live Demo:** [finguard-ai-demo.streamlit.app](https://finguard-ai-demo-cfjsgsbg3qxf4zkv7j2xde.streamlit.app/)
+**🔗 Live Demo:** [finguard-ai-platform.streamlit.app](https://finguard-ai-platform.streamlit.app/)
 **📦 Repository chính (mã nguồn đầy đủ):** [Finguard-AI](https://github.com/Chidokato5376/Finguard-AI)
 
 > Submission — **AI-Quantum Challenge 2026**

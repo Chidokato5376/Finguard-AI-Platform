@@ -12,7 +12,7 @@
 > Submission — **AI-Quantum Challenge 2026**
 > Tác giả: Phạm Tiến Dũng — Khoa Toán Kinh tế, Đại học Kinh tế Quốc dân (NEU)
 
-**🔗 Live Demo:** [finguard-ai-demo.streamlit.app](https://finguard-ai-demo-cfjsgsbg3qxf4zkv7j2xde.streamlit.app/) · **Repo demo:** [Finguard-AI-Demo](https://github.com/Chidokato5376/Finguard-AI-Demo)
+**🔗 Live Demo:** [finguard-ai-platform.streamlit.app](https://finguard-ai-platform.streamlit.app/) · **Bản demo:** [Finguard-Demo/](../Finguard-Demo/)
 
 ---
 
