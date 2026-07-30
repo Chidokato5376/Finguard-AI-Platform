@@ -16,7 +16,7 @@
 
 ---
 
-## 📂 Nội dung repository
+## Nội dung repository
 
 | Đường dẫn | Mô tả |
 |---|---|
