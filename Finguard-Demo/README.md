@@ -7,8 +7,8 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Mode](https://img.shields.io/badge/Scoring-Heuristic-blue?style=flat-square)]()
 
-**🔗 Live Demo:** [finguard-ai-platform.streamlit.app](https://finguard-ai-platform.streamlit.app/)
-**📦 Repository chính (mã nguồn đầy đủ):** [Finguard-AI](https://github.com/Chidokato5376/Finguard-AI)
+**Live Demo:** [finguard-ai-platform.streamlit.app](https://finguard-ai-platform.streamlit.app/)
+**Repository chính (mã nguồn đầy đủ):** [Finguard-AI](https://github.com/Chidokato5376/Finguard-AI)
 
 > Submission — **AI-Quantum Challenge 2026**
 > Tác giả: Phạm Tiến Dũng — Khoa Toán Kinh tế, Đại học Kinh tế Quốc dân (NEU)
@@ -126,7 +126,7 @@ Dashboard demo dùng bộ **`synthetic_vn`** — dữ liệu **tổng hợp (mô
 
 **Hiệu chỉnh:** số tiền trung bình ~6,1 triệu VND (neo theo Napas Q1/2025, nguồn NHNN), phân phối log-normal; tỷ lệ người trưởng thành có tài khoản 88,9% (NHNN cuối 2025).
 
-> ⚠️ **KHÔNG phải dữ liệu thật.** Đây là dữ liệu mô phỏng, **không phải giao dịch ngân hàng thật** và **không chứa dữ liệu khách hàng**. Hai giả định phải nêu rõ: (1) **tỷ lệ gian lận 1% là tham số giả định** — không có nguồn công khai nào công bố con số này ở mức chi tiết cần cho mô phỏng; (2) `device_id` và `ip_country` là trường **tự sinh** (đã gắn cờ `is_synthetic_field`). Bộ dữ liệu này dùng để *minh họa luồng vận hành* và *kiểm thử concept drift*, **không** dùng làm bằng chứng về thị trường Việt Nam hay làm chỉ số hiệu năng chính.
+> Đây là dữ liệu mô phỏng, **không phải giao dịch ngân hàng thật** và **không chứa dữ liệu khách hàng**. Hai giả định phải nêu rõ: (1) **tỷ lệ gian lận 1% là tham số giả định** — không có nguồn công khai nào công bố con số này ở mức chi tiết cần cho mô phỏng; (2) `device_id` và `ip_country` là trường **tự sinh** (đã gắn cờ `is_synthetic_field`). Bộ dữ liệu này dùng để *minh họa luồng vận hành* và *kiểm thử concept drift*, **không** dùng làm bằng chứng về thị trường Việt Nam hay làm chỉ số hiệu năng chính.
 
 Lý do dùng dữ liệu mô phỏng: theo **Nghị định 13/2023/NĐ-CP** về bảo vệ dữ liệu cá nhân và quy định bảo mật thông tin khách hàng ngành ngân hàng, Việt Nam chưa có bộ dữ liệu giao dịch gian lận công khai ở cấp bản ghi.
 
