@@ -94,6 +94,9 @@ def run_encoder_over_window(
     e_out: list[torch.Tensor | None] = [None] * n
     pred_out: list[torch.Tensor | None] = [None] * n
 
+    # Tính embedding đồ thị MỘT lần cho cả cửa sổ (xem DRRE.forward).
+    g_all = model.graph_encoder(node_features, edge_index)
+
     for account_id, group in window.groupby("account_id", sort=False):
         idxs = group.index.tolist()  # đã sort theo group nhưng group giữ thứ tự gốc (đã sort theo time trước đó)
         h, m = model.behavior_memory.init_state(1, device=device)
@@ -112,7 +115,7 @@ def run_encoder_over_window(
             x_t = torch.tensor(
                 window.loc[row_idx, FEATURE_COLUMNS].to_numpy(dtype=np.float32), device=device
             ).unsqueeze(0)
-            out = model(x_t, h, m, node_features, edge_index, node_idx)
+            out = model(x_t, h, m, node_features, edge_index, node_idx, g_all=g_all)
             h, m = out["h_t"], out["m_t"]
             e_out[row_idx] = out["e_t"].squeeze(0)
             pred_out[row_idx] = out["e_pred"].squeeze(0)
@@ -181,8 +184,9 @@ def train_on_window(
     device: torch.device,
     num_negatives: int,
     rng: random.Random,
+    use_graph: bool = True,
 ) -> dict[str, float]:
-    node_features, edge_index, account_to_idx = build_account_graph(window, FEATURE_COLUMNS)
+    node_features, edge_index, account_to_idx = build_account_graph(window, FEATURE_COLUMNS, use_graph=use_graph)
     node_features, edge_index = node_features.to(device), edge_index.to(device)
 
     online_out = run_encoder_over_window(model, window, node_features, edge_index, account_to_idx, device)
@@ -254,14 +258,17 @@ def train_on_window(
 # --------------------------------------------------------------------------
 
 @torch.no_grad()
-def evaluate_auprc(model: DRRE, risk_engine: RiskScoringEngine, df_val: pd.DataFrame, device: torch.device) -> float | None:
+def evaluate_auprc(
+    model: DRRE, risk_engine: RiskScoringEngine, df_val: pd.DataFrame, device: torch.device,
+    use_graph: bool = True,
+) -> float | None:
     from src.evaluation.metrics import compute_auprc
 
     if "label" not in df_val.columns or df_val["label"].notna().sum() == 0:
         return None
 
     window = df_val.reset_index(drop=True)
-    node_features, edge_index, account_to_idx = build_account_graph(window, FEATURE_COLUMNS)
+    node_features, edge_index, account_to_idx = build_account_graph(window, FEATURE_COLUMNS, use_graph=use_graph)
     node_features, edge_index = node_features.to(device), edge_index.to(device)
     out = run_encoder_over_window(model, window, node_features, edge_index, account_to_idx, device)
     scores = risk_engine(out["e"]).cpu().numpy()
@@ -295,6 +302,8 @@ def train(
     processed_dir: str = "data/processed",
     checkpoint_path: str = "models/drre_checkpoint.pt",
     seed: int = 42,
+    use_graph: bool = True,
+    disabled_branches: list[str] | None = None,
 ) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     torch.manual_seed(seed)
@@ -335,13 +344,31 @@ def train(
         embedding_dim=embedding_dim,
     ).to(device)
     risk_engine = RiskScoringEngine(embedding_dim=embedding_dim).to(device)
+
+    # Tắt nhánh PHẢI làm trước khi tạo target network (EMA sao chép cả mặt nạ).
+    disabled = set(disabled_branches or [])
+    if not use_graph:
+        disabled.add("graph")
+    model.fusion.set_disabled_branches(disabled)
+    if disabled:
+        logger.info("Tắt nhánh: %s | dựng đồ thị: %s", sorted(disabled), use_graph)
     target = EMATargetEncoder(model, decay=ema_decay)
 
-    loss_fn = DRRECompositeLoss(lambda_contrast=lambda_contrast, lambda_bce=lambda_bce)
+    pos_rate = float(df_train["label"].mean()) if "label" in df_train.columns else 0.0
+    pos_weight = (1.0 - pos_rate) / pos_rate if 0.0 < pos_rate < 1.0 else None
+    if pos_weight is not None:
+        logger.info(
+            "Tỷ lệ nhãn dương trên tập train = %.4f%% -> pos_weight = %.1f",
+            pos_rate * 100, pos_weight,
+        )
+    loss_fn = DRRECompositeLoss(
+        lambda_contrast=lambda_contrast, lambda_bce=lambda_bce, pos_weight=pos_weight,
+    ).to(device)
     optimizer = torch.optim.Adam(
         list(model.parameters()) + list(risk_engine.parameters()), lr=lr
     )
 
+    extra = {"use_graph": use_graph, "disabled_branches": sorted(disabled)}
     model_config = dict(
         input_dim=input_dim, hidden_dim=hidden_dim, num_slots=num_slots,
         graph_hidden_dim=graph_hidden_dim, graph_num_layers=graph_num_layers,
@@ -359,6 +386,7 @@ def train(
         for window in windows:
             stats = train_on_window(
                 model, risk_engine, target, loss_fn, optimizer, window, device, num_negatives, rng,
+                use_graph=use_graph,
             )
             for k in epoch_stats:
                 epoch_stats[k] += stats[k]
@@ -376,21 +404,24 @@ def train(
 
         if df_val is not None:
             model.eval()
-            auprc = evaluate_auprc(model, risk_engine, df_val, device)
+            auprc = evaluate_auprc(model, risk_engine, df_val, device, use_graph=use_graph)
             if auprc is not None:
                 logger.info("Epoch %d | Val AUPRC = %.4f", epoch, auprc)
                 if auprc > best_auprc:
                     best_auprc = auprc
-                    _save_checkpoint(model, risk_engine, model_config, checkpoint_path)
+                    _save_checkpoint(model, risk_engine, model_config, checkpoint_path, extra=extra)
                     logger.info("Đã lưu checkpoint tốt nhất (AUPRC=%.4f) -> %s", auprc, checkpoint_path)
 
     if df_val is None or best_auprc < 0:
         # Không có val/nhãn để chọn "best" -> lưu checkpoint cuối cùng
-        _save_checkpoint(model, risk_engine, model_config, checkpoint_path)
+        _save_checkpoint(model, risk_engine, model_config, checkpoint_path, extra=extra)
         logger.info("Không có tập val gắn nhãn — đã lưu checkpoint sau epoch cuối -> %s", checkpoint_path)
 
 
-def _save_checkpoint(model: DRRE, risk_engine: RiskScoringEngine, model_config: dict, path: str) -> None:
+def _save_checkpoint(
+    model: DRRE, risk_engine: RiskScoringEngine, model_config: dict, path: str,
+    extra: dict | None = None,
+) -> None:
     """Lưu đúng định dạng mà src/dashboard/scoring_service.py::try_load_drre_checkpoint
     kỳ vọng — hai bên PHẢI khớp nhau, xem test_train_checkpoint_compatible_with_dashboard.
     """
@@ -401,6 +432,7 @@ def _save_checkpoint(model: DRRE, risk_engine: RiskScoringEngine, model_config: 
             "model_config": model_config,
             "drre_state_dict": model.state_dict(),
             "risk_engine_state_dict": risk_engine.state_dict(),
+            **(extra or {}),
         },
         out_path,
     )
@@ -418,12 +450,19 @@ def main() -> None:
     parser.add_argument("--processed-dir", default="data/processed")
     parser.add_argument("--checkpoint", default="models/drre_checkpoint.pt")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--no-graph", action="store_true",
+                         help="Không dựng đồ thị, tắt nhánh đồ thị — bắt buộc với nguồn không có "
+                              "người nhận (ieee_cis)")
+    parser.add_argument("--disable-branch", action="append", default=[],
+                         choices=["transaction", "behavior", "graph"],
+                         help="Tắt một nhánh để làm ablation, vd. --disable-branch behavior")
     args = parser.parse_args()
 
     train(
         source=args.source, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
         num_negatives=args.num_negatives, config_path=args.config,
         processed_dir=args.processed_dir, checkpoint_path=args.checkpoint, seed=args.seed,
+        use_graph=not args.no_graph, disabled_branches=args.disable_branch,
     )
 
 

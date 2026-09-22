@@ -32,13 +32,16 @@ class BehaviorMemory(nn.Module):
         self.gru_cell = nn.GRUCell(input_dim, hidden_dim)
         self.f_enc = nn.Linear(input_dim, hidden_dim)
 
-        # Slot tương đồng dùng dot-product; decay rate alpha_k phụ thuộc
-        # similarity nên không có tham số học riêng — được tính runtime.
+        # Slot PHẢI khởi tạo khác nhau. Nếu khởi tạo bằng 0, mọi slot có cùng
+        # similarity nên nhận cùng một cập nhật và KHÔNG BAO GIỜ tách ra —
+        # hậu quả đo được: alpha_k luôn = 1/K và delta_t luôn = 1 - 1/K
+        # (= 0.75 cố định cho mọi giao dịch, trên mọi checkpoint).
+        self.slot_prototypes = nn.Parameter(torch.randn(num_slots, hidden_dim) * 0.1)
 
     def init_state(self, batch_size: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
         """Khởi tạo (h_0, M_0) cho một batch khách hàng mới (cold-start)."""
         h0 = torch.zeros(batch_size, self.hidden_dim, device=device)
-        m0 = torch.zeros(batch_size, self.num_slots, self.hidden_dim, device=device)
+        m0 = self.slot_prototypes.to(device).unsqueeze(0).expand(batch_size, -1, -1)
         return h0, m0
 
     def forward(
@@ -64,5 +67,8 @@ class BehaviorMemory(nn.Module):
         similarity = (encoded_norm * slots_norm).sum(dim=-1)  # (batch, num_slots)
         alpha_k = torch.softmax(similarity, dim=-1).unsqueeze(-1)  # (batch, num_slots, 1)
 
-        m_t = (1 - alpha_k) * m_prev + alpha_k * encoded.unsqueeze(1)
+        # Ghi TRẠNG THÁI GRU h_t vào slot (không phải encoded). Nếu ghi
+        # encoded thì h_t không nằm trên đường gradient nào và GRUCell không
+        # bao giờ được huấn luyện (đã đo: gru_cell.weight_ih.grad = None).
+        m_t = (1 - alpha_k) * m_prev + alpha_k * h_t.unsqueeze(1)
         return h_t, m_t

@@ -49,8 +49,15 @@ def load_paysim(path: str | Path, synthesize_device_ip: bool = False) -> pd.Data
 
     df = pd.DataFrame(
         {
-            "account_id": raw["nameOrig"],
-            "counterparty_id": raw["nameDest"],
+            # PaySim: người GỬI gần như không lặp lại (99.85% chỉ có đúng 1
+            # giao dịch trong toàn bộ dữ liệu) nên Behavior Memory, L_pred và
+            # L_contrast đều không có dữ liệu. Người NHẬN thì có: 17.9% xuất
+            # hiện >= 2 lần, và 73.7% giao dịch gian lận có người nhận đã
+            # từng xuất hiện. Vì vậy với PaySim, "tài khoản" được mô hình hóa
+            # là BÊN NHẬN — cũng đúng với bài toán Money Mule (tài khoản
+            # trung gian nhận tiền từ nhiều nguồn).
+            "account_id": raw["nameDest"],
+            "counterparty_id": raw["nameOrig"],
             "step": raw["step"],
             "amount": raw["amount"],
             "channel": raw["type"].str.lower(),
@@ -145,10 +152,14 @@ def load_ieee_cis(
             f"Không tìm thấy {transaction_path}. Tải IEEE-CIS từ Kaggle competition "
             "(cần Accept Rules trước khi tải — xem README)."
         )
-    raw = pd.read_csv(transaction_path)
-    missing = set(IEEE_CIS_TRANSACTION_REQUIRED_COLUMNS) - set(raw.columns)
+    # Chỉ đọc các cột thực sự dùng: file gốc có 394 cột (~2–3 GB RAM nếu
+    # đọc hết) — quá nặng với máy RAM 8 GB, trong khi 11 cột này chỉ vài
+    # chục MB. Kiểm tra header trước để giữ nguyên thông báo lỗi thiếu cột.
+    header = pd.read_csv(transaction_path, nrows=0).columns
+    missing = set(IEEE_CIS_TRANSACTION_REQUIRED_COLUMNS) - set(header)
     if missing:
         raise ValueError(f"IEEE-CIS train_transaction.csv thiếu cột: {missing}")
+    raw = pd.read_csv(transaction_path, usecols=IEEE_CIS_TRANSACTION_REQUIRED_COLUMNS)
 
     df = pd.DataFrame(
         {

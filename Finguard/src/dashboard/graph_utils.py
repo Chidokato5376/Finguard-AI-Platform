@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover
 
 
 def build_account_graph(
-    df: pd.DataFrame, feature_cols: list[str]
+    df: pd.DataFrame, feature_cols: list[str], use_graph: bool = True
 ) -> tuple["torch.Tensor", "torch.Tensor", dict[str, int]]:
     """Dựng (node_features, edge_index, account_to_idx) từ một batch giao dịch.
 
@@ -50,6 +50,18 @@ def build_account_graph(
     missing = set(feature_cols) - set(df.columns)
     if missing:
         raise ValueError(f"DataFrame thiếu cột đặc trưng cho node: {missing}")
+
+    if not use_graph:
+        # Chế độ tắt đồ thị (train.py --no-graph): dùng cho nguồn không có
+        # người nhận (IEEE-CIS) hoặc để làm ablation. Mọi nút có đặc trưng 0
+        # và không có cạnh -> Graph Encoder chỉ cho ra một vector hằng; nhánh
+        # đồ thị đồng thời bị tắt hẳn ở gate (xem AdaptiveRiskFusion).
+        accounts = pd.unique(df["account_id"])
+        return (
+            torch.zeros((len(accounts), len(feature_cols)), dtype=torch.float32),
+            torch.empty((2, 0), dtype=torch.long),
+            {acc: i for i, acc in enumerate(accounts)},
+        )
 
     # Chặn cứng: một số nguồn dữ liệu (vd. IEEE-CIS, xem
     # src/data/loaders.py::load_ieee_cis) không có counterparty_id thật và

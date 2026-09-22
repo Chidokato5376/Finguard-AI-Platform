@@ -17,12 +17,29 @@ from torch import nn
 class AdaptiveRiskFusion(nn.Module):
     """Hợp nhất ba nguồn thông tin bằng trọng số học được (gating network)."""
 
+    BRANCHES = ("transaction", "behavior", "graph")
+
     def __init__(self, x_dim: int, h_dim: int, g_dim: int, embedding_dim: int) -> None:
         super().__init__()
         self.phi_1 = nn.Linear(x_dim, embedding_dim)
         self.phi_2 = nn.Linear(h_dim, embedding_dim)
         self.phi_3 = nn.Linear(g_dim, embedding_dim)
         self.gate = nn.Linear(x_dim + h_dim + g_dim, 3)
+        # Mặt nạ tắt nhánh (ablation, hoặc nguồn không có đồ thị). Buffer
+        # không lưu vào state_dict để checkpoint cũ vẫn nạp được; danh sách
+        # nhánh bị tắt được lưu riêng trong checkpoint ("disabled_branches").
+        self.register_buffer("branch_mask", torch.ones(3), persistent=False)
+
+    def set_disabled_branches(self, names) -> None:
+        """Tắt các nhánh theo tên ("transaction" | "behavior" | "graph"):
+        gate của nhánh bị tắt luôn bằng 0, các nhánh còn lại chia lại trọng số.
+        """
+        mask = torch.ones(3, device=self.branch_mask.device)
+        for name in names:
+            mask[self.BRANCHES.index(name)] = 0.0
+        if mask.sum() == 0:
+            raise ValueError("Không thể tắt cả ba nhánh.")
+        self.branch_mask = mask
 
     def forward(
         self, x_t: torch.Tensor, h_tilde: torch.Tensor, g_t: torch.Tensor
@@ -38,7 +55,8 @@ class AdaptiveRiskFusion(nn.Module):
             beta: (batch, 3) — trọng số gate [beta_x, beta_h, beta_g], dùng cho Module 6.
         """
         concat = torch.cat([x_t, h_tilde, g_t], dim=-1)
-        beta = torch.softmax(self.gate(concat), dim=-1)  # (batch, 3)
+        logits = self.gate(concat).masked_fill(self.branch_mask == 0, float("-inf"))
+        beta = torch.softmax(logits, dim=-1)  # (batch, 3)
 
         e_t = (
             beta[:, 0:1] * self.phi_1(x_t)

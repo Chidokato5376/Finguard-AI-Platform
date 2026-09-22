@@ -132,6 +132,8 @@ def try_load_drre_checkpoint(checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PA
         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         model = DRRE(**checkpoint["model_config"])
         model.load_state_dict(checkpoint["drre_state_dict"])
+        model.fusion.set_disabled_branches(checkpoint.get("disabled_branches", []))
+        model.use_graph = checkpoint.get("use_graph", True)
         model.eval()
 
         risk_engine = RiskScoringEngine(embedding_dim=checkpoint["model_config"]["embedding_dim"])
@@ -169,7 +171,9 @@ def _score_with_drre(df: pd.DataFrame, drre, risk_engine) -> pd.DataFrame:
             "Chạy src/data/preprocessing.py trước."
         )
 
-    node_features, edge_index, account_to_idx = build_account_graph(df, feature_cols)
+    node_features, edge_index, account_to_idx = build_account_graph(
+        df, feature_cols, use_graph=getattr(drre, "use_graph", True)
+    )
     x_t = torch.tensor(df[feature_cols].to_numpy(dtype=np.float32))
     batch_size = len(df)
 

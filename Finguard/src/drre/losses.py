@@ -95,11 +95,20 @@ def contrastive_loss(
 class DRRECompositeLoss(nn.Module):
     """L = L_pred + lambda_1 * L_contrast + lambda_2 * L_BCE"""
 
-    def __init__(self, lambda_contrast: float = 0.5, lambda_bce: float = 0.3) -> None:
+    def __init__(
+        self, lambda_contrast: float = 0.5, lambda_bce: float = 0.3,
+        pos_weight: float | None = None,
+    ) -> None:
         super().__init__()
         self.lambda_contrast = lambda_contrast
         self.lambda_bce = lambda_bce
-        self.bce = nn.BCEWithLogitsLoss()
+        # pos_weight = (1 - p) / p với p là tỷ lệ nhãn dương. Không có nó,
+        # với fraud < 1% sigmoid bão hòa về 0 và MỌI giao dịch đều ra điểm
+        # gần 0 (đã đo: điểm cao nhất 0.57/100) — dashboard không hiển thị
+        # được gì và mọi ngưỡng tier đều vô nghĩa.
+        self.bce = nn.BCEWithLogitsLoss(
+            pos_weight=None if pos_weight is None else torch.tensor(float(pos_weight))
+        )
 
     def forward(
         self,
