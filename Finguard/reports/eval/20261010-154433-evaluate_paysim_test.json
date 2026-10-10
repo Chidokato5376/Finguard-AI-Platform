@@ -1,0 +1,221 @@
+{
+  "kind": "evaluate_paysim_test",
+  "run_id": "20261010-154433-evaluate_paysim_test",
+  "started_utc": "2026-10-10T15:44:33+00:00",
+  "finished_utc": "2026-10-10T15:44:33+00:00",
+  "duration_seconds": 95.1,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_paysim_3m_15ep_s43.pt",
+    "compare_checkpoint": "models/drre_paysim_3m_15ep_s44.pt",
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": false,
+    "compare_baseline": null,
+    "by_period": 4
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_3m\\paysim_test.parquet",
+      "exists": true,
+      "bytes": 15819795,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "aaaff3d62574e2641dc83563c9475cf8",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 462,
+      "positive_rate": 0.0010266666666666666,
+      "time_col": "step",
+      "time_min": "260",
+      "time_max": "298",
+      "n_accounts": 359837
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.0010266666666666666,
+    "metrics": {
+      "drre_paysim_3m_15ep_s43.pt (drre_trained)": {
+        "auprc": 0.018292823008232564,
+        "roc_auc": 0.9105967985717862,
+        "ece": 0.15405695475495132,
+        "recall@500": 0.0021645021645021645,
+        "fpr@500": 0.998,
+        "caught@500": 1.0,
+        "recall@1000": 0.1038961038961039,
+        "fpr@1000": 0.952,
+        "caught@1000": 48.0,
+        "recall@2000": 0.21861471861471862,
+        "fpr@2000": 0.9495,
+        "caught@2000": 101.0
+      },
+      "drre_paysim_3m_15ep_s44.pt (drre_trained)": {
+        "auprc": 0.01507994333908373,
+        "roc_auc": 0.8682713266235683,
+        "ece": 0.11218598245419903,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.08441558441558442,
+        "fpr@1000": 0.961,
+        "caught@1000": 39.0,
+        "recall@2000": 0.16017316017316016,
+        "fpr@2000": 0.963,
+        "caught@2000": 74.0
+      }
+    },
+    "bootstrap": {
+      "diff_auprc": 0.0032128796691488336,
+      "ci95": [
+        0.0015584382580748862,
+        0.004977386795470313
+      ],
+      "n_boot": 300
+    },
+    "bootstrap_vs_baseline": null,
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| drre_paysim_3m_15ep_s44.pt (drre_trained) | 0.0151 | 0.868 | 0 | 39 | 74 |\n| drre_paysim_3m_15ep_s43.pt (drre_trained) | 0.0183 | 0.911 | 1 | 48 | 101 |",
+    "by_period": [
+      {
+        "period": 1,
+        "row_from": 0,
+        "row_to": 112500,
+        "n_rows": 112500,
+        "n_pos": 202,
+        "pos_rate": 0.0017955555555555557,
+        "time_from": 260,
+        "time_to": 275,
+        "methods": {
+          "drre_paysim_3m_15ep_s43.pt (drre_trained)": {
+            "auprc": 0.10538012703550889,
+            "lift": 58.689427185617575,
+            "roc_auc": 0.9239251856226246
+          },
+          "drre_paysim_3m_15ep_s44.pt (drre_trained)": {
+            "auprc": 0.09239633061821749,
+            "lift": 51.45835244826469,
+            "roc_auc": 0.8896597878099801
+          }
+        }
+      },
+      {
+        "period": 2,
+        "row_from": 112500,
+        "row_to": 225000,
+        "n_rows": 112500,
+        "n_pos": 54,
+        "pos_rate": 0.00048,
+        "time_from": 275,
+        "time_to": 280,
+        "methods": {
+          "drre_paysim_3m_15ep_s43.pt (drre_trained)": {
+            "auprc": 0.013719884171620502,
+            "lift": 28.583092024209378,
+            "roc_auc": 0.9231160174990992
+          },
+          "drre_paysim_3m_15ep_s44.pt (drre_trained)": {
+            "auprc": 0.009637223014163811,
+            "lift": 20.077547946174604,
+            "roc_auc": 0.9226540673679745
+          }
+        }
+      },
+      {
+        "period": 3,
+        "row_from": 225000,
+        "row_to": 337500,
+        "n_rows": 112500,
+        "n_pos": 44,
+        "pos_rate": 0.0003911111111111111,
+        "time_from": 280,
+        "time_to": 283,
+        "methods": {
+          "drre_paysim_3m_15ep_s43.pt (drre_trained)": {
+            "auprc": 0.0038464579947028892,
+            "lift": 9.83469373645625,
+            "roc_auc": 0.871980940424376
+          },
+          "drre_paysim_3m_15ep_s44.pt (drre_trained)": {
+            "auprc": 0.0039425651893492675,
+            "lift": 10.08042235913165,
+            "roc_auc": 0.8035585230910514
+          }
+        }
+      },
+      {
+        "period": 4,
+        "row_from": 337500,
+        "row_to": 450000,
+        "n_rows": 112500,
+        "n_pos": 162,
+        "pos_rate": 0.00144,
+        "time_from": 283,
+        "time_to": 298,
+        "methods": {
+          "drre_paysim_3m_15ep_s43.pt (drre_trained)": {
+            "auprc": 0.01615236687614415,
+            "lift": 11.216921441766772,
+            "roc_auc": 0.905307813347242
+          },
+          "drre_paysim_3m_15ep_s44.pt (drre_trained)": {
+            "auprc": 0.011735245530594051,
+            "lift": 8.149476062912536,
+            "roc_auc": 0.839655468758414
+          }
+        }
+      }
+    ],
+    "by_period_markdown_table": "| Giai đoạn | Thời gian | Dòng | Gian lận | Mốc ngẫu nhiên | drre_paysim_3m_15ep_s44.pt (drre_trained) | drre_paysim_3m_15ep_s43.pt (drre_trained) |\n|---|---|---|---|---|---|---|\n| 1 | 260–275 | 112,500 | 202 | 0.00180 | 0.0924 (×51) | 0.1054 (×59) |\n| 2 | 275–280 | 112,500 | 54 | 0.00048 | 0.0096 (×20) | 0.0137 (×29) |\n| 3 | 280–283 | 112,500 | 44 | 0.00039 | 0.0039 (×10) | 0.0038 (×10) |\n| 4 | 283–298 | 112,500 | 162 | 0.00144 | 0.0117 (×8) | 0.0162 (×11) |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--source",
+      "paysim",
+      "--split",
+      "test",
+      "--checkpoint",
+      "models/drre_paysim_3m_15ep_s43.pt",
+      "--compare-checkpoint",
+      "models/drre_paysim_3m_15ep_s44.pt",
+      "--bootstrap",
+      "300",
+      "--no-baselines",
+      "--by-period",
+      "4",
+      "--processed-dir",
+      "data/processed_3m"
+    ]
+  },
+  "notes": []
+}

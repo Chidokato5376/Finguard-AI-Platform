@@ -1,0 +1,357 @@
+{
+  "kind": "evaluate_paysim_test",
+  "run_id": "20261010-154235-evaluate_paysim_test",
+  "started_utc": "2026-10-10T15:42:30+00:00",
+  "finished_utc": "2026-10-10T15:42:35+00:00",
+  "duration_seconds": 728.5,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_paysim_3m_15ep.pt",
+    "compare_checkpoint": null,
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": true,
+    "compare_baseline": "gbdt_them_lich_su",
+    "by_period": 4
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_3m\\paysim_test.parquet",
+      "exists": true,
+      "bytes": 15819795,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "aaaff3d62574e2641dc83563c9475cf8",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 462,
+      "positive_rate": 0.0010266666666666666,
+      "time_col": "step",
+      "time_min": "260",
+      "time_max": "298",
+      "n_accounts": 359837
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.0010266666666666666,
+    "metrics": {
+      "drre_paysim_3m_15ep.pt (drre_trained)": {
+        "auprc": 0.15125810349406724,
+        "roc_auc": 0.9177935402809607,
+        "ece": 0.12814461608504626,
+        "recall@500": 0.14285714285714285,
+        "fpr@500": 0.868,
+        "caught@500": 66.0,
+        "recall@1000": 0.19913419913419914,
+        "fpr@1000": 0.908,
+        "caught@1000": 92.0,
+        "recall@2000": 0.25757575757575757,
+        "fpr@2000": 0.9405,
+        "caught@2000": 119.0
+      },
+      "ngau_nhien": {
+        "auprc": 0.0010623449661095335,
+        "roc_auc": 0.5095225325995583,
+        "ece": 0.498701028762519,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.0,
+        "fpr@1000": 1.0,
+        "caught@1000": 0.0,
+        "recall@2000": 0.0021645021645021645,
+        "fpr@2000": 0.9995,
+        "caught@2000": 1.0
+      },
+      "chi_so_tien": {
+        "auprc": 0.015618602326907524,
+        "roc_auc": 0.8065871293084564,
+        "ece": 0.9975394840000001,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.09523809523809523,
+        "fpr@1000": 0.956,
+        "caught@1000": 44.0,
+        "recall@2000": 0.1774891774891775,
+        "fpr@2000": 0.959,
+        "caught@2000": 82.0
+      },
+      "logistic_cung_dau_vao": {
+        "auprc": 0.008767867984146853,
+        "roc_auc": 0.8526770095797631,
+        "ece": 0.29414636231662056,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.049783549783549784,
+        "fpr@1000": 0.977,
+        "caught@1000": 23.0,
+        "recall@2000": 0.09090909090909091,
+        "fpr@2000": 0.979,
+        "caught@2000": 42.0
+      },
+      "gbdt_cung_dau_vao": {
+        "auprc": 0.011564195056392711,
+        "roc_auc": 0.7596496400084751,
+        "ece": 5.8869600456781744e-05,
+        "recall@500": 0.08874458874458875,
+        "fpr@500": 0.918,
+        "caught@500": 41.0,
+        "recall@1000": 0.09956709956709957,
+        "fpr@1000": 0.954,
+        "caught@1000": 46.0,
+        "recall@2000": 0.10822510822510822,
+        "fpr@2000": 0.975,
+        "caught@2000": 50.0
+      },
+      "gbdt_them_lich_su": {
+        "auprc": 0.2825849045328084,
+        "roc_auc": 0.8694461426766595,
+        "ece": 0.0015543436942086117,
+        "recall@500": 0.40476190476190477,
+        "fpr@500": 0.626,
+        "caught@500": 187.0,
+        "recall@1000": 0.4393939393939394,
+        "fpr@1000": 0.797,
+        "caught@1000": 203.0,
+        "recall@2000": 0.45021645021645024,
+        "fpr@2000": 0.896,
+        "caught@2000": 208.0
+      }
+    },
+    "bootstrap": null,
+    "bootstrap_vs_baseline": {
+      "baseline": "gbdt_them_lich_su",
+      "diff_auprc": -0.13132680103874114,
+      "ci95": [
+        -0.1739889900449993,
+        -0.0843768067873075
+      ],
+      "n_boot": 300
+    },
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| ngau_nhien | 0.0011 | 0.510 | 0 | 0 | 1 |\n| logistic_cung_dau_vao | 0.0088 | 0.853 | 0 | 23 | 42 |\n| gbdt_cung_dau_vao | 0.0116 | 0.760 | 41 | 46 | 50 |\n| chi_so_tien | 0.0156 | 0.807 | 0 | 44 | 82 |\n| drre_paysim_3m_15ep.pt (drre_trained) | 0.1513 | 0.918 | 66 | 92 | 119 |\n| gbdt_them_lich_su | 0.2826 | 0.869 | 187 | 203 | 208 |",
+    "by_period": [
+      {
+        "period": 1,
+        "row_from": 0,
+        "row_to": 112500,
+        "n_rows": 112500,
+        "n_pos": 202,
+        "pos_rate": 0.0017955555555555557,
+        "time_from": 260,
+        "time_to": 275,
+        "methods": {
+          "drre_paysim_3m_15ep.pt (drre_trained)": {
+            "auprc": 0.27690747866168614,
+            "lift": 154.21827400712718,
+            "roc_auc": 0.9331950975912922
+          },
+          "ngau_nhien": {
+            "auprc": 0.001876640245030204,
+            "lift": 1.0451585523064255,
+            "roc_auc": 0.509894950651987
+          },
+          "chi_so_tien": {
+            "auprc": 0.1076727681318496,
+            "lift": 59.96626938036178,
+            "roc_auc": 0.840271790986112
+          },
+          "logistic_cung_dau_vao": {
+            "auprc": 0.04094398853314331,
+            "lift": 22.802963910785255,
+            "roc_auc": 0.8793591362021382
+          },
+          "gbdt_cung_dau_vao": {
+            "auprc": 0.03346427029138511,
+            "lift": 18.637279246439725,
+            "roc_auc": 0.734440532959599
+          },
+          "gbdt_them_lich_su": {
+            "auprc": 0.38833029639026034,
+            "lift": 216.27306110843705,
+            "roc_auc": 0.8817107073135853
+          }
+        }
+      },
+      {
+        "period": 2,
+        "row_from": 112500,
+        "row_to": 225000,
+        "n_rows": 112500,
+        "n_pos": 54,
+        "pos_rate": 0.00048,
+        "time_from": 275,
+        "time_to": 280,
+        "methods": {
+          "drre_paysim_3m_15ep.pt (drre_trained)": {
+            "auprc": 0.1272786411939393,
+            "lift": 265.1638358207069,
+            "roc_auc": 0.9059909250267288
+          },
+          "ngau_nhien": {
+            "auprc": 0.0005200298062609463,
+            "lift": 1.0833954297103048,
+            "roc_auc": 0.4695170554294045
+          },
+          "chi_so_tien": {
+            "auprc": 0.010934283293312214,
+            "lift": 22.779756861067114,
+            "roc_auc": 0.8434404069508921
+          },
+          "logistic_cung_dau_vao": {
+            "auprc": 0.005561157271222916,
+            "lift": 11.585744315047743,
+            "roc_auc": 0.8926198978802007
+          },
+          "gbdt_cung_dau_vao": {
+            "auprc": 0.0037452311478835465,
+            "lift": 7.802564891424055,
+            "roc_auc": 0.7705002104713966
+          },
+          "gbdt_them_lich_su": {
+            "auprc": 0.07834240925502521,
+            "lift": 163.21335261463585,
+            "roc_auc": 0.7947050798374989
+          }
+        }
+      },
+      {
+        "period": 3,
+        "row_from": 225000,
+        "row_to": 337500,
+        "n_rows": 112500,
+        "n_pos": 44,
+        "pos_rate": 0.0003911111111111111,
+        "time_from": 280,
+        "time_to": 283,
+        "methods": {
+          "drre_paysim_3m_15ep.pt (drre_trained)": {
+            "auprc": 0.06426803133492179,
+            "lift": 164.32167102678866,
+            "roc_auc": 0.9096867987156189
+          },
+          "ngau_nhien": {
+            "auprc": 0.00046393876818349484,
+            "lift": 1.1862070777418903,
+            "roc_auc": 0.47728343853272714
+          },
+          "chi_so_tien": {
+            "auprc": 0.0042457304100464496,
+            "lift": 10.855560707505127,
+            "roc_auc": 0.7196816775207435
+          },
+          "logistic_cung_dau_vao": {
+            "auprc": 0.0025776466033645036,
+            "lift": 6.590573701784242,
+            "roc_auc": 0.7714240357440809
+          },
+          "gbdt_cung_dau_vao": {
+            "auprc": 0.00877470091592767,
+            "lift": 22.43531484186052,
+            "roc_auc": 0.7845794840163748
+          },
+          "gbdt_them_lich_su": {
+            "auprc": 0.08088460081407156,
+            "lift": 206.80721799052387,
+            "roc_auc": 0.8156346603439244
+          }
+        }
+      },
+      {
+        "period": 4,
+        "row_from": 337500,
+        "row_to": 450000,
+        "n_rows": 112500,
+        "n_pos": 162,
+        "pos_rate": 0.00144,
+        "time_from": 283,
+        "time_to": 298,
+        "methods": {
+          "drre_paysim_3m_15ep.pt (drre_trained)": {
+            "auprc": 0.13105817729361044,
+            "lift": 91.0126231205628,
+            "roc_auc": 0.907857740386211
+          },
+          "ngau_nhien": {
+            "auprc": 0.001554389238886504,
+            "lift": 1.0794369714489611,
+            "roc_auc": 0.5309128272284105
+          },
+          "chi_so_tien": {
+            "auprc": 0.010998038146190386,
+            "lift": 7.63752649040999,
+            "roc_auc": 0.7807516623663727
+          },
+          "logistic_cung_dau_vao": {
+            "auprc": 0.008294669470776481,
+            "lift": 5.760187132483667,
+            "roc_auc": 0.8268419006222184
+          },
+          "gbdt_cung_dau_vao": {
+            "auprc": 0.01791800493945201,
+            "lift": 12.443058985730563,
+            "roc_auc": 0.7853247496697028
+          },
+          "gbdt_them_lich_su": {
+            "auprc": 0.30191662181540807,
+            "lift": 209.6643207051445,
+            "roc_auc": 0.8899812987217368
+          }
+        }
+      }
+    ],
+    "by_period_markdown_table": "| Giai đoạn | Thời gian | Dòng | Gian lận | Mốc ngẫu nhiên | ngau_nhien | logistic_cung_dau_vao | gbdt_cung_dau_vao | chi_so_tien | drre_paysim_3m_15ep.pt (drre_trained) | gbdt_them_lich_su |\n|---|---|---|---|---|---|---|---|---|---|---|\n| 1 | 260–275 | 112,500 | 202 | 0.00180 | 0.0019 (×1) | 0.0409 (×23) | 0.0335 (×19) | 0.1077 (×60) | 0.2769 (×154) | 0.3883 (×216) |\n| 2 | 275–280 | 112,500 | 54 | 0.00048 | 0.0005 (×1) | 0.0056 (×12) | 0.0037 (×8) | 0.0109 (×23) | 0.1273 (×265) | 0.0783 (×163) |\n| 3 | 280–283 | 112,500 | 44 | 0.00039 | 0.0005 (×1) | 0.0026 (×7) | 0.0088 (×22) | 0.0042 (×11) | 0.0643 (×164) | 0.0809 (×207) |\n| 4 | 283–298 | 112,500 | 162 | 0.00144 | 0.0016 (×1) | 0.0083 (×6) | 0.0179 (×12) | 0.0110 (×8) | 0.1311 (×91) | 0.3019 (×210) |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--source",
+      "paysim",
+      "--split",
+      "test",
+      "--checkpoint",
+      "models/drre_paysim_3m_15ep.pt",
+      "--compare-baseline",
+      "gbdt_them_lich_su",
+      "--bootstrap",
+      "300",
+      "--by-period",
+      "4",
+      "--processed-dir",
+      "data/processed_3m"
+    ]
+  },
+  "notes": []
+}

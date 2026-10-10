@@ -1,0 +1,171 @@
+{
+  "kind": "evaluate_paysim_test",
+  "run_id": "20261007-195138-evaluate_paysim_test",
+  "started_utc": "2026-10-07T19:51:33+00:00",
+  "finished_utc": "2026-10-07T19:51:38+00:00",
+  "duration_seconds": 583.0,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_paysim_3m.pt",
+    "compare_checkpoint": null,
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 200,
+    "score_batch_size": 8192,
+    "baselines": true
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_3m\\paysim_test.parquet",
+      "exists": true,
+      "bytes": 15819795,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "aaaff3d62574e2641dc83563c9475cf8",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 462,
+      "positive_rate": 0.0010266666666666666,
+      "time_col": "step",
+      "time_min": "260",
+      "time_max": "298",
+      "n_accounts": 359837
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.0010266666666666666,
+    "metrics": {
+      "drre_paysim_3m.pt (drre_trained)": {
+        "auprc": 0.013549140747245591,
+        "roc_auc": 0.890754934084419,
+        "ece": 0.18010559021644593,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.06493506493506493,
+        "fpr@1000": 0.97,
+        "caught@1000": 30.0,
+        "recall@2000": 0.13636363636363635,
+        "fpr@2000": 0.9685,
+        "caught@2000": 63.0
+      },
+      "ngau_nhien": {
+        "auprc": 0.0010623449661095335,
+        "roc_auc": 0.5095225325995583,
+        "ece": 0.498701028762519,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.0,
+        "fpr@1000": 1.0,
+        "caught@1000": 0.0,
+        "recall@2000": 0.0021645021645021645,
+        "fpr@2000": 0.9995,
+        "caught@2000": 1.0
+      },
+      "chi_so_tien": {
+        "auprc": 0.015618602326907524,
+        "roc_auc": 0.8065871293084564,
+        "ece": 0.9975394840000001,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.09523809523809523,
+        "fpr@1000": 0.956,
+        "caught@1000": 44.0,
+        "recall@2000": 0.1774891774891775,
+        "fpr@2000": 0.959,
+        "caught@2000": 82.0
+      },
+      "logistic_cung_dau_vao": {
+        "auprc": 0.008767867984146853,
+        "roc_auc": 0.8526770095797631,
+        "ece": 0.29414636231662056,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.049783549783549784,
+        "fpr@1000": 0.977,
+        "caught@1000": 23.0,
+        "recall@2000": 0.09090909090909091,
+        "fpr@2000": 0.979,
+        "caught@2000": 42.0
+      },
+      "gbdt_cung_dau_vao": {
+        "auprc": 0.011564195056392711,
+        "roc_auc": 0.7596496400084751,
+        "ece": 5.8869600456781744e-05,
+        "recall@500": 0.08874458874458875,
+        "fpr@500": 0.918,
+        "caught@500": 41.0,
+        "recall@1000": 0.09956709956709957,
+        "fpr@1000": 0.954,
+        "caught@1000": 46.0,
+        "recall@2000": 0.10822510822510822,
+        "fpr@2000": 0.975,
+        "caught@2000": 50.0
+      },
+      "gbdt_them_lich_su": {
+        "auprc": 0.2825849045328084,
+        "roc_auc": 0.8694461426766595,
+        "ece": 0.0015543436942086117,
+        "recall@500": 0.40476190476190477,
+        "fpr@500": 0.626,
+        "caught@500": 187.0,
+        "recall@1000": 0.4393939393939394,
+        "fpr@1000": 0.797,
+        "caught@1000": 203.0,
+        "recall@2000": 0.45021645021645024,
+        "fpr@2000": 0.896,
+        "caught@2000": 208.0
+      }
+    },
+    "bootstrap": null,
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| ngau_nhien | 0.0011 | 0.510 | 0 | 0 | 1 |\n| logistic_cung_dau_vao | 0.0088 | 0.853 | 0 | 23 | 42 |\n| gbdt_cung_dau_vao | 0.0116 | 0.760 | 41 | 46 | 50 |\n| drre_paysim_3m.pt (drre_trained) | 0.0135 | 0.891 | 0 | 30 | 63 |\n| chi_so_tien | 0.0156 | 0.807 | 0 | 44 | 82 |\n| gbdt_them_lich_su | 0.2826 | 0.869 | 187 | 203 | 208 |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--source",
+      "paysim",
+      "--processed-dir",
+      "data/processed_3m",
+      "--checkpoint",
+      "models/drre_paysim_3m.pt",
+      "--score-batch-size",
+      "8192",
+      "--bootstrap",
+      "200"
+    ]
+  },
+  "notes": []
+}

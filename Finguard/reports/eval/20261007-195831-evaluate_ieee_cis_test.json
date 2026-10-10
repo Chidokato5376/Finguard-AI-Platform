@@ -1,0 +1,190 @@
+{
+  "kind": "evaluate_ieee_cis_test",
+  "run_id": "20261007-195831-evaluate_ieee_cis_test",
+  "started_utc": "2026-10-07T19:58:30+00:00",
+  "finished_utc": "2026-10-07T19:58:31+00:00",
+  "duration_seconds": 42.4,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_ieee.pt",
+    "compare_checkpoint": "models/drre_ieee_no_behavior.pt",
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": true
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed\\ieee_cis_test.parquet",
+      "exists": true,
+      "bytes": 829626,
+      "modified_utc": "2026-09-21T03:54:45+00:00",
+      "sha256": "64f15f35d71479c7137964059baa57cd",
+      "hash_scope": "full",
+      "n_rows": 45000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 1757,
+      "positive_rate": 0.039044444444444444,
+      "time_col": "step",
+      "time_min": "6108395",
+      "time_max": "7415031",
+      "n_accounts": 17691
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.039044444444444444,
+    "metrics": {
+      "drre_ieee.pt (drre_trained)": {
+        "auprc": 0.09770518391618907,
+        "roc_auc": 0.7337799028036437,
+        "ece": 0.38464296860292224,
+        "recall@500": 0.02902675014228799,
+        "fpr@500": 0.898,
+        "caught@500": 51.0,
+        "recall@1000": 0.05805350028457598,
+        "fpr@1000": 0.898,
+        "caught@1000": 102.0,
+        "recall@2000": 0.14058053500284576,
+        "fpr@2000": 0.8765,
+        "caught@2000": 247.0
+      },
+      "drre_ieee_no_behavior.pt (drre_trained)": {
+        "auprc": 0.10448962178727644,
+        "roc_auc": 0.7315188389326268,
+        "ece": 0.49474024185519744,
+        "recall@500": 0.04951622083096187,
+        "fpr@500": 0.826,
+        "caught@500": 87.0,
+        "recall@1000": 0.06772908366533864,
+        "fpr@1000": 0.881,
+        "caught@1000": 119.0,
+        "recall@2000": 0.15993170176437108,
+        "fpr@2000": 0.8595,
+        "caught@2000": 281.0
+      },
+      "ngau_nhien": {
+        "auprc": 0.03928069837482231,
+        "roc_auc": 0.49596895551974024,
+        "ece": 0.4619245344837278,
+        "recall@500": 0.01195219123505976,
+        "fpr@500": 0.958,
+        "caught@500": 21.0,
+        "recall@1000": 0.02504268639726807,
+        "fpr@1000": 0.956,
+        "caught@1000": 44.0,
+        "recall@2000": 0.05236198064883324,
+        "fpr@2000": 0.954,
+        "caught@2000": 92.0
+      },
+      "chi_so_tien": {
+        "auprc": 0.040744513636546936,
+        "roc_auc": 0.49112506995615085,
+        "ece": 0.6394826468888888,
+        "recall@500": 0.0028457598178713715,
+        "fpr@500": 0.99,
+        "caught@500": 5.0,
+        "recall@1000": 0.014228799089356859,
+        "fpr@1000": 0.975,
+        "caught@1000": 25.0,
+        "recall@2000": 0.037564029595902104,
+        "fpr@2000": 0.967,
+        "caught@2000": 66.0
+      },
+      "logistic_cung_dau_vao": {
+        "auprc": 0.10095105624472676,
+        "roc_auc": 0.73513242677471,
+        "ece": 0.38173167029666255,
+        "recall@500": 0.03642572566875356,
+        "fpr@500": 0.872,
+        "caught@500": 64.0,
+        "recall@1000": 0.06488332384746727,
+        "fpr@1000": 0.886,
+        "caught@1000": 114.0,
+        "recall@2000": 0.1400113830392715,
+        "fpr@2000": 0.877,
+        "caught@2000": 246.0
+      },
+      "gbdt_cung_dau_vao": {
+        "auprc": 0.10793834044871493,
+        "roc_auc": 0.7334366848087284,
+        "ece": 0.01100255217583594,
+        "recall@500": 0.043824701195219126,
+        "fpr@500": 0.846,
+        "caught@500": 77.0,
+        "recall@1000": 0.07455890722822994,
+        "fpr@1000": 0.869,
+        "caught@1000": 131.0,
+        "recall@2000": 0.15139442231075698,
+        "fpr@2000": 0.867,
+        "caught@2000": 266.0
+      },
+      "gbdt_them_lich_su": {
+        "auprc": 0.11763545931721477,
+        "roc_auc": 0.7527181668797569,
+        "ece": 0.010177943199197105,
+        "recall@500": 0.05976095617529881,
+        "fpr@500": 0.79,
+        "caught@500": 105.0,
+        "recall@1000": 0.09675583380762663,
+        "fpr@1000": 0.83,
+        "caught@1000": 170.0,
+        "recall@2000": 0.1661923733636881,
+        "fpr@2000": 0.854,
+        "caught@2000": 292.0
+      }
+    },
+    "bootstrap": {
+      "diff_auprc": -0.006784437871087373,
+      "ci95": [
+        -0.010330121860100858,
+        -0.004025967336324713
+      ],
+      "n_boot": 300
+    },
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| ngau_nhien | 0.0393 | 0.496 | 21 | 44 | 92 |\n| chi_so_tien | 0.0407 | 0.491 | 5 | 25 | 66 |\n| drre_ieee.pt (drre_trained) | 0.0977 | 0.734 | 51 | 102 | 247 |\n| logistic_cung_dau_vao | 0.1010 | 0.735 | 64 | 114 | 246 |\n| drre_ieee_no_behavior.pt (drre_trained) | 0.1045 | 0.732 | 87 | 119 | 281 |\n| gbdt_cung_dau_vao | 0.1079 | 0.733 | 77 | 131 | 266 |\n| gbdt_them_lich_su | 0.1176 | 0.753 | 105 | 170 | 292 |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--source",
+      "ieee_cis",
+      "--checkpoint",
+      "models/drre_ieee.pt",
+      "--compare-checkpoint",
+      "models/drre_ieee_no_behavior.pt",
+      "--bootstrap",
+      "300"
+    ]
+  },
+  "notes": []
+}

@@ -1,0 +1,178 @@
+{
+  "kind": "drre_train_ieee_cis",
+  "run_id": "20261007-183439-drre_train_ieee_cis",
+  "started_utc": "2026-10-07T18:34:38+00:00",
+  "finished_utc": "2026-10-07T18:36:19+00:00",
+  "duration_seconds": 101.0,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "epochs": 4,
+    "batch_size": 2048,
+    "lr": 0.001,
+    "num_negatives": 5,
+    "use_graph": false,
+    "disabled_branches": [
+      "graph"
+    ],
+    "feature_columns": [
+      "amount_norm",
+      "channel_encoded"
+    ],
+    "model_config": {
+      "input_dim": 2,
+      "hidden_dim": 64,
+      "num_slots": 4,
+      "graph_hidden_dim": 64,
+      "graph_num_layers": 2,
+      "embedding_dim": 128
+    },
+    "pos_weight": 32.12302839116719,
+    "lambda_contrast": 0.5,
+    "lambda_bce": 0.3,
+    "ema_decay": 0.996,
+    "contrastive_temperature": 0.1,
+    "config_path": "config/config.yaml",
+    "checkpoint_path": "models/drre_ieee_v2.pt"
+  },
+  "data": {
+    "train_file": {
+      "path": "data\\processed\\ieee_cis_train.parquet",
+      "exists": true,
+      "bytes": 4539458,
+      "modified_utc": "2026-09-21T03:54:45+00:00",
+      "sha256": "d144decb4a9fedceeb233d0c2021b5ce",
+      "hash_scope": "full",
+      "n_rows": 210000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 6340,
+      "positive_rate": 0.03019047619047619,
+      "time_col": "step",
+      "time_min": "86400",
+      "time_max": "4844988",
+      "n_accounts": 54884
+    },
+    "val_file": {
+      "path": "data\\processed\\ieee_cis_val.parquet",
+      "exists": true,
+      "bytes": 829757,
+      "modified_utc": "2026-09-21T03:54:45+00:00",
+      "sha256": "ae78efbd3762f9a24c0599deb27bb27a",
+      "hash_scope": "full",
+      "n_rows": 45000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 2002,
+      "positive_rate": 0.04448888888888889,
+      "time_col": "step",
+      "time_min": "4845024",
+      "time_max": "6108388",
+      "n_accounts": 17584
+    }
+  },
+  "results": {
+    "epochs": [
+      {
+        "epoch": 1,
+        "loss": 1.2260749455794548,
+        "l_pred": 0.15090887235857328,
+        "l_contrast": 1.3894963461218528,
+        "l_bce": 1.268059645462962,
+        "n_windows": 103,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 23.0,
+        "val_auprc": 0.13543796820387088,
+        "saved_checkpoint": true
+      },
+      {
+        "epoch": 2,
+        "loss": 1.005925814503605,
+        "l_pred": 0.030430854813566485,
+        "l_contrast": 1.2079835933389016,
+        "l_bce": 1.2383438423999305,
+        "n_windows": 103,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 48.0,
+        "val_auprc": 0.12630080144985084
+      },
+      {
+        "epoch": 3,
+        "loss": 0.8404247216807986,
+        "l_pred": 0.02605327842666686,
+        "l_contrast": 0.8825294167092703,
+        "l_bce": 1.2436890665767262,
+        "n_windows": 103,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 72.9,
+        "val_auprc": 0.11983566186701289
+      },
+      {
+        "epoch": 4,
+        "loss": 0.7111982761077511,
+        "l_pred": 0.01401866153696353,
+        "l_contrast": 0.6464714908484116,
+        "l_bce": 1.2464795129970438,
+        "n_windows": 103,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 97.8,
+        "val_auprc": 0.11575969213111581
+      }
+    ],
+    "best_val_auprc": 0.13543796820387088,
+    "best_epoch": 1
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "D:\\Risk Management - HVTC Competition\\finguard\\Finguard\\src\\drre\\train.py",
+      "--source",
+      "ieee_cis",
+      "--epochs",
+      "4",
+      "--batch-size",
+      "2048",
+      "--no-graph",
+      "--checkpoint",
+      "models/drre_ieee_v2.pt",
+      "--seed",
+      "42"
+    ]
+  },
+  "notes": []
+}

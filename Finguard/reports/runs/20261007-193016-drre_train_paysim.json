@@ -1,0 +1,168 @@
+{
+  "kind": "drre_train_paysim",
+  "run_id": "20261007-193016-drre_train_paysim",
+  "started_utc": "2026-10-07T19:30:14+00:00",
+  "finished_utc": "2026-10-07T19:38:56+00:00",
+  "duration_seconds": 522.8,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "epochs": 3,
+    "batch_size": 8192,
+    "lr": 0.001,
+    "num_negatives": 5,
+    "use_graph": true,
+    "disabled_branches": [],
+    "feature_columns": [
+      "amount_norm",
+      "channel_encoded"
+    ],
+    "model_config": {
+      "input_dim": 2,
+      "hidden_dim": 64,
+      "num_slots": 4,
+      "graph_hidden_dim": 64,
+      "graph_num_layers": 2,
+      "embedding_dim": 128
+    },
+    "pos_weight": 988.6324222431667,
+    "lambda_contrast": 0.5,
+    "lambda_bce": 0.3,
+    "ema_decay": 0.996,
+    "contrastive_temperature": 0.1,
+    "config_path": "config/config.yaml",
+    "checkpoint_path": "models/drre_paysim_3m.pt"
+  },
+  "data": {
+    "train_file": {
+      "path": "data\\processed_3m\\paysim_train.parquet",
+      "exists": true,
+      "bytes": 71646307,
+      "modified_utc": "2026-10-07T19:22:01+00:00",
+      "sha256": "94a3205bb5f30518a924a25873779e07",
+      "hash_scope": "full",
+      "n_rows": 2100000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 2122,
+      "positive_rate": 0.0010104761904761905,
+      "time_col": "step",
+      "time_min": "45",
+      "time_max": "235",
+      "n_accounts": 985895
+    },
+    "val_file": {
+      "path": "data\\processed_3m\\paysim_val.parquet",
+      "exists": true,
+      "bytes": 15810830,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "d3b62880751c57d92eaca27ccf492b12",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 262,
+      "positive_rate": 0.0005822222222222223,
+      "time_col": "step",
+      "time_min": "235",
+      "time_max": "260",
+      "n_accounts": 347038
+    }
+  },
+  "results": {
+    "epochs": [
+      {
+        "epoch": 1,
+        "loss": 0.8737449272597346,
+        "l_pred": 0.09470465361477684,
+        "l_contrast": 0.7488699984457706,
+        "l_bce": 1.3486841940230432,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 180.1,
+        "val_auprc": 0.05885758867584869,
+        "saved_checkpoint": true
+      },
+      {
+        "epoch": 2,
+        "loss": 0.5759782105800243,
+        "l_pred": 0.012405548849893219,
+        "l_contrast": 0.35477614165048194,
+        "l_bce": 1.2872819154874824,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 347.7,
+        "val_auprc": 0.06809765363458387,
+        "saved_checkpoint": true
+      },
+      {
+        "epoch": 3,
+        "loss": 0.4488630786480143,
+        "l_pred": 0.009901345736466725,
+        "l_contrast": 0.2755721558160819,
+        "l_bce": 1.0039188082579973,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 516.7,
+        "val_auprc": 0.09448761050342114,
+        "saved_checkpoint": true
+      }
+    ],
+    "best_val_auprc": 0.09448761050342114,
+    "best_epoch": 3
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "D:\\Risk Management - HVTC Competition\\finguard\\Finguard\\src\\drre\\train.py",
+      "--source",
+      "paysim",
+      "--epochs",
+      "3",
+      "--batch-size",
+      "8192",
+      "--processed-dir",
+      "data/processed_3m",
+      "--checkpoint",
+      "models/drre_paysim_3m.pt",
+      "--seed",
+      "42"
+    ]
+  },
+  "notes": []
+}

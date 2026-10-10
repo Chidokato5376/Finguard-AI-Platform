@@ -1,0 +1,123 @@
+{
+  "kind": "evaluate_paysim_test",
+  "run_id": "20261009-135354-evaluate_paysim_test",
+  "started_utc": "2026-10-09T13:53:47+00:00",
+  "finished_utc": "2026-10-09T13:53:54+00:00",
+  "duration_seconds": 119.9,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_paysim_3m_15ep.pt",
+    "compare_checkpoint": "models/drre_paysim_3m.pt",
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": false
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_3m\\paysim_test.parquet",
+      "exists": true,
+      "bytes": 15819795,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "aaaff3d62574e2641dc83563c9475cf8",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 462,
+      "positive_rate": 0.0010266666666666666,
+      "time_col": "step",
+      "time_min": "260",
+      "time_max": "298",
+      "n_accounts": 359837
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.0010266666666666666,
+    "metrics": {
+      "drre_paysim_3m_15ep.pt (drre_trained)": {
+        "auprc": 0.15125810349406724,
+        "roc_auc": 0.9177935402809607,
+        "ece": 0.12814461608504626,
+        "recall@500": 0.14285714285714285,
+        "fpr@500": 0.868,
+        "caught@500": 66.0,
+        "recall@1000": 0.19913419913419914,
+        "fpr@1000": 0.908,
+        "caught@1000": 92.0,
+        "recall@2000": 0.25757575757575757,
+        "fpr@2000": 0.9405,
+        "caught@2000": 119.0
+      },
+      "drre_paysim_3m.pt (drre_trained)": {
+        "auprc": 0.013549140747245591,
+        "roc_auc": 0.890754934084419,
+        "ece": 0.18010559021644593,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.06493506493506493,
+        "fpr@1000": 0.97,
+        "caught@1000": 30.0,
+        "recall@2000": 0.13636363636363635,
+        "fpr@2000": 0.9685,
+        "caught@2000": 63.0
+      }
+    },
+    "bootstrap": {
+      "diff_auprc": 0.13770896274682165,
+      "ci95": [
+        0.10973568368321655,
+        0.17002140895497778
+      ],
+      "n_boot": 300
+    },
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| drre_paysim_3m.pt (drre_trained) | 0.0135 | 0.891 | 0 | 30 | 63 |\n| drre_paysim_3m_15ep.pt (drre_trained) | 0.1513 | 0.918 | 66 | 92 | 119 |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--source",
+      "paysim",
+      "--processed-dir",
+      "data/processed_3m",
+      "--checkpoint",
+      "models/drre_paysim_3m_15ep.pt",
+      "--compare-checkpoint",
+      "models/drre_paysim_3m.pt",
+      "--no-baselines",
+      "--bootstrap",
+      "300"
+    ]
+  },
+  "notes": []
+}

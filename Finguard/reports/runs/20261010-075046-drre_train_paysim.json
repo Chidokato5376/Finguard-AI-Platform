@@ -1,0 +1,306 @@
+{
+  "kind": "drre_train_paysim",
+  "run_id": "20261010-075046-drre_train_paysim",
+  "started_utc": "2026-10-10T07:50:41+00:00",
+  "finished_utc": "2026-10-10T08:30:29+00:00",
+  "duration_seconds": 2388.7,
+  "device": "cpu",
+  "seed": 44,
+  "hyperparameters": {
+    "epochs": 15,
+    "batch_size": 8192,
+    "lr": 0.001,
+    "num_negatives": 5,
+    "use_graph": true,
+    "disabled_branches": [],
+    "feature_columns": [
+      "amount_norm",
+      "channel_encoded"
+    ],
+    "model_config": {
+      "input_dim": 2,
+      "hidden_dim": 64,
+      "num_slots": 4,
+      "graph_hidden_dim": 64,
+      "graph_num_layers": 2,
+      "embedding_dim": 128
+    },
+    "pos_weight": 988.6324222431667,
+    "lambda_contrast": 0.5,
+    "lambda_bce": 0.3,
+    "ema_decay": 0.996,
+    "contrastive_temperature": 0.1,
+    "config_path": "config/config.yaml",
+    "checkpoint_path": "models/drre_paysim_3m_15ep_s44.pt",
+    "selection": "smoothed",
+    "smooth_window": 3
+  },
+  "data": {
+    "train_file": {
+      "path": "data\\processed_3m\\paysim_train.parquet",
+      "exists": true,
+      "bytes": 71646307,
+      "modified_utc": "2026-10-07T19:22:01+00:00",
+      "sha256": "94a3205bb5f30518a924a25873779e07",
+      "hash_scope": "full",
+      "n_rows": 2100000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 2122,
+      "positive_rate": 0.0010104761904761905,
+      "time_col": "step",
+      "time_min": "45",
+      "time_max": "235",
+      "n_accounts": 985895
+    },
+    "val_file": {
+      "path": "data\\processed_3m\\paysim_val.parquet",
+      "exists": true,
+      "bytes": 15810830,
+      "modified_utc": "2026-10-07T19:22:02+00:00",
+      "sha256": "d3b62880751c57d92eaca27ccf492b12",
+      "hash_scope": "full",
+      "n_rows": 450000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "channel_encoded"
+      ],
+      "n_positive": 262,
+      "positive_rate": 0.0005822222222222223,
+      "time_col": "step",
+      "time_min": "235",
+      "time_max": "260",
+      "n_accounts": 347038
+    }
+  },
+  "results": {
+    "epochs": [
+      {
+        "epoch": 1,
+        "loss": 0.832535283516817,
+        "l_pred": 0.08852253149259937,
+        "l_contrast": 0.7484074822311735,
+        "l_bce": 1.2326966507889416,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 157.3,
+        "val_auprc": 0.06406531277688508
+      },
+      {
+        "epoch": 2,
+        "loss": 0.48349857747786706,
+        "l_pred": 0.008844752619785876,
+        "l_contrast": 0.28095234049201473,
+        "l_bce": 1.1139254724237242,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 319.5,
+        "val_auprc": 0.12711106389538335,
+        "saved_checkpoint": true
+      },
+      {
+        "epoch": 3,
+        "loss": 0.43871638062863033,
+        "l_pred": 0.008170080962790184,
+        "l_contrast": 0.2420515129306437,
+        "l_bce": 1.0317350896763895,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 480.3,
+        "val_auprc": 0.06257416812053058
+      },
+      {
+        "epoch": 4,
+        "loss": 0.4179193175140522,
+        "l_pred": 0.0054981076846656604,
+        "l_contrast": 0.21301175537972133,
+        "l_bce": 1.0197177533973516,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 641.0,
+        "val_auprc": 0.07137680430308338
+      },
+      {
+        "epoch": 5,
+        "loss": 0.4236085300083754,
+        "l_pred": 0.011268341664228488,
+        "l_contrast": 0.2178275542848305,
+        "l_bce": 1.0114213267073093,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 803.3,
+        "val_auprc": 0.08291242814826374
+      },
+      {
+        "epoch": 6,
+        "loss": 0.4194934216802686,
+        "l_pred": 0.0065424224621786625,
+        "l_contrast": 0.20169127697726633,
+        "l_bce": 1.0403511574064248,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 963.5,
+        "val_auprc": 0.08290535826387622
+      },
+      {
+        "epoch": 7,
+        "loss": 0.38692328809300286,
+        "l_pred": 0.007313807434692312,
+        "l_contrast": 0.19728942780759084,
+        "l_bce": 0.9365491851990325,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1123.4,
+        "val_auprc": 0.05980305923810201
+      },
+      {
+        "epoch": 8,
+        "loss": 0.3592690408577715,
+        "l_pred": 0.006020719557819373,
+        "l_contrast": 0.18173521675952214,
+        "l_bce": 0.8746023363060524,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1282.5,
+        "val_auprc": 0.045403956252121555
+      },
+      {
+        "epoch": 9,
+        "loss": 0.3826696345082517,
+        "l_pred": 0.005720552545337999,
+        "l_contrast": 0.1541168414897028,
+        "l_bce": 0.9996355094218532,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1442.5,
+        "val_auprc": 0.03088183761333384
+      },
+      {
+        "epoch": 10,
+        "loss": 0.3291827191522613,
+        "l_pred": 0.007410888028773208,
+        "l_contrast": 0.12201722059036507,
+        "l_bce": 0.8692107030737725,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1602.1,
+        "val_auprc": 0.018457820263753588
+      },
+      {
+        "epoch": 11,
+        "loss": 0.3223788721146287,
+        "l_pred": 0.004371883080826514,
+        "l_contrast": 0.09125657931173126,
+        "l_bce": 0.9079289541286253,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1763.6,
+        "val_auprc": 0.02459692464917274
+      },
+      {
+        "epoch": 12,
+        "loss": 0.3029334622250457,
+        "l_pred": 0.004439974503124183,
+        "l_contrast": 0.0783162611366362,
+        "l_bce": 0.8644511543707161,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 1933.6,
+        "val_auprc": 0.031893298902418085
+      },
+      {
+        "epoch": 13,
+        "loss": 0.3565857230979181,
+        "l_pred": 0.004372376250556094,
+        "l_contrast": 0.0725871561863369,
+        "l_bce": 1.0530658436482518,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 2084.1,
+        "val_auprc": 0.019705681247606327
+      },
+      {
+        "epoch": 14,
+        "loss": 0.327824912385486,
+        "l_pred": 0.005363628330752834,
+        "l_contrast": 0.0734432628994322,
+        "l_bce": 0.9524654650096763,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 2234.2,
+        "val_auprc": 0.01666360722731225
+      },
+      {
+        "epoch": 15,
+        "loss": 0.3018262101924373,
+        "l_pred": 0.005868358644457527,
+        "l_contrast": 0.08167411023859616,
+        "l_bce": 0.8504026190374148,
+        "n_windows": 257,
+        "n_windows_no_pred_pairs": 0,
+        "seconds_elapsed": 2383.5,
+        "val_auprc": 0.036617002802764614
+      }
+    ],
+    "best_epoch": 2,
+    "best_val_auprc": 0.12711106389538335,
+    "selection": "smoothed",
+    "best_val_auprc_smoothed": 0.08458351493093301
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "80be181bd19b6e271aa31fa067a00ddc8b9af19c",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "D:\\Risk Management - HVTC Competition\\finguard\\Finguard\\src\\drre\\train.py",
+      "--source",
+      "paysim",
+      "--epochs",
+      "15",
+      "--batch-size",
+      "8192",
+      "--processed-dir",
+      "data/processed_3m",
+      "--checkpoint",
+      "models/drre_paysim_3m_15ep_s44.pt",
+      "--seed",
+      "44",
+      "--select",
+      "smoothed"
+    ]
+  },
+  "notes": [
+    "Checkpoint được chọn bằng trung bình trượt có tâm 3 epoch (--select smoothed): epoch 1 và epoch 15 KHÔNG nằm trong diện được chọn vì không đủ epoch kề để biết chúng có phải đỉnh nhiễu hay không."
+  ]
+}
