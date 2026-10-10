@@ -1,8 +1,16 @@
 # Data (không commit dữ liệu thô/đã xử lý — chỉ commit schema & script)
+# Dấu * sau processed để bắt cả các thư mục lát dữ liệu khác, vd.
+# data/processed_3m/ (lát 3 triệu dòng, xem docs/augmentation.md).
 data/raw/*
-data/processed/*
+data/processed*/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
+# Dataset tổng hợp có phiên bản (src/augmentation) — chỉ commit manifest để
+# truy vết, không commit các dòng dữ liệu đã sinh (có thể sinh lại từ manifest)
+data/synthetic/*
+!data/synthetic/**/manifest.json
+!data/synthetic/**/specs.json
 
 # Python
 __pycache__/
