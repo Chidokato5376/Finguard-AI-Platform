@@ -42,7 +42,7 @@ def time_based_split(
     if time_col not in df.columns:
         raise KeyError(f"Cột thời gian '{time_col}' không tồn tại trong DataFrame")
 
-    df_sorted = df.sort_values(time_col).reset_index(drop=True)
+    df_sorted = df.sort_values(time_col, kind="stable").reset_index(drop=True)
     n = len(df_sorted)
     train_end = int(n * config.train_ratio)
     val_end = train_end + int(n * config.val_ratio)

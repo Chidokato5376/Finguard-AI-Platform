@@ -63,7 +63,7 @@ def compute_heuristic_scores(df: pd.DataFrame) -> pd.DataFrame:
         account_history_count, risk_score, method (luôn = "heuristic_fallback").
     """
     time_col = "step" if "step" in df.columns else "timestamp"
-    df = df.sort_values(time_col).reset_index(drop=True).copy()
+    df = df.sort_values(time_col, kind="stable").reset_index(drop=True).copy()
     df["log_amount"] = np.log1p(df["amount"].astype(float))
 
     # Thống kê lịch sử TÍCH LŨY theo từng tài khoản (chỉ dùng dữ liệu quá
@@ -200,17 +200,57 @@ def _score_with_drre(df: pd.DataFrame, drre, risk_engine) -> pd.DataFrame:
     return result
 
 
+def _chunk_bounds(n_rows: int, batch_size: int) -> list[tuple[int, int]]:
+    """Khoảng của từng lô, gộp lô cuối nếu chỉ còn 1 dòng.
+
+    Cùng quy tắc với src/drre/train.py::eval_chunk_bounds — cố ý viết lại ở
+    đây thay vì import, để scoring_service không phải phụ thuộc vào module
+    huấn luyện (dashboard chỉ cần torch, không cần cả vòng lặp train).
+    """
+    bounds = [(start, min(start + batch_size, n_rows)) for start in range(0, n_rows, batch_size)]
+    if len(bounds) >= 2 and bounds[-1][1] - bounds[-1][0] < 2:
+        bounds[-2] = (bounds[-2][0], bounds[-1][1])
+        bounds.pop()
+    return bounds
+
+
 def score_batch(
-    df: pd.DataFrame, checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PATH
+    df: pd.DataFrame,
+    checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PATH,
+    batch_size: int | None = None,
 ) -> pd.DataFrame:
     """Điểm vào chính cho dashboard: tự chọn backend, LUÔN gắn cột `method`
     để UI hiển thị minh bạch nguồn gốc điểm số.
+
+    Args:
+        batch_size: None (mặc định) = chấm cả DataFrame trong MỘT lô, giữ
+            đúng hành vi cũ cho dashboard. Nếu truyền số, dữ liệu được sắp
+            theo thời gian rồi chấm theo lô — BẮT BUỘC với tập lớn: chấm
+            450.000 dòng PaySim trong một lô làm tiến trình chết vì hết bộ
+            nhớ (đo thực tế trên máy RAM 7,4 GB), do Graph Encoder phải
+            dựng một đồ thị cho toàn bộ tập.
+
+            Lưu ý: chấm theo lô KHÔNG cho cùng điểm với chấm một lô, vì
+            trạng thái Behavior Memory và đồ thị được khởi tạo lại ở mỗi lô
+            — giống hệt cách mô hình được huấn luyện, và loại bỏ việc đồ thị
+            của cả tập "nhìn thấy" quan hệ ở tương lai.
     """
     loaded = try_load_drre_checkpoint(checkpoint_path)
-    if loaded is not None:
-        drre, risk_engine = loaded
+    if loaded is None:
+        return compute_heuristic_scores(df)
+
+    drre, risk_engine = loaded
+    if batch_size is None or len(df) <= batch_size:
         return _score_with_drre(df, drre, risk_engine)
-    return compute_heuristic_scores(df)
+
+    time_col = "step" if "step" in df.columns else "timestamp"
+    df_sorted = df.sort_values(time_col, kind="stable").reset_index(drop=True)
+    parts = [
+        _score_with_drre(df_sorted.iloc[start:stop].reset_index(drop=True), drre, risk_engine)
+        for start, stop in _chunk_bounds(len(df_sorted), batch_size)
+    ]
+    logger.info("Đã chấm %d dòng theo %d lô (batch_size=%d)", len(df_sorted), len(parts), batch_size)
+    return pd.concat(parts, ignore_index=True)
 
 
 def classify_tier(score: float, low_max: int = 30, medium_max: int = 70) -> str:
