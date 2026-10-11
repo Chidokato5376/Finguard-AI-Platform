@@ -44,7 +44,7 @@ Dự án định vị lại bài toán: rủi ro không phải một nhãn tĩnh
 
 Triết lý xuyên suốt: FinGuard AI là một **AI Risk Officer** hỗ trợ ra quyết định, **không thay thế** con người ở khâu quyết định cuối cùng — yêu cầu bắt buộc về compliance trong ngành ngân hàng.
 
-Dự án hiện ở trạng thái **research prototype**: toàn bộ tám module đã được cài đặt và chạy được end-to-end, kèm bộ unit test cho từng thành phần. Kết quả benchmark định lượng đang trong quá trình hoàn thiện — xem [§9](#9-kết-quả).
+Dự án hiện ở trạng thái **research prototype**: toàn bộ tám module đã được cài đặt và chạy được end-to-end, kèm bộ unit test cho từng thành phần. Luồng huấn luyện đã chạy được ở quy mô **hàng triệu giao dịch**, và mỗi lần chạy đều ghi **manifest truy nguyên** (commit, seed, phiên bản thư viện, dấu vân tay sha256 của dữ liệu) để mọi con số về sau đều kiểm chứng lại được. Kết quả benchmark định lượng đang trong quá trình hoàn thiện — xem [§9](#9-kết-quả), và [§5.7](#57-giao-thức-báo-cáo-kết-quả) cho giao thức báo cáo bắt buộc.
 
 ---
 
@@ -136,10 +136,34 @@ Ba kịch bản gian lận, mỗi kịch bản kiểm thử một thành phần 
 
 - **Mất cân bằng nhãn nghiêm trọng** (< 1% gian lận): xử lý bằng contrastive learning + self-supervised prediction loss làm tín hiệu chính, nhãn chỉ dùng fine-tune. **Không dùng SMOTE** — kỹ thuật này phá vỡ cấu trúc chuỗi thời gian theo khách hàng.
 - **PaySim là dữ liệu mô phỏng**, không phản ánh 100% hành vi người dùng Việt Nam. Ngoài ra PaySim **rất thưa** — phần lớn tài khoản chỉ xuất hiện một lần, làm suy yếu cả tín hiệu chuỗi hành vi lẫn message passing trên đồ thị.
+- **Hai nguồn hiện có, mỗi nguồn vô hiệu hóa MỘT nhánh của DRRE** — đây là giới hạn quan trọng nhất về giá trị hiệu lực của phép đo, đã được đo cụ thể (cửa sổ 8.192 giao dịch):
+
+  | Nguồn | Chuỗi cho Behavior Memory | Graph Encoder |
+  |---|---|---|
+  | PaySim | **1,01 giao dịch/tài khoản** trong cửa sổ; chỉ 1,0% tài khoản có ≥2; chuỗi dài nhất 4 | chạy được |
+  | IEEE-CIS | 1,59 giao dịch/tài khoản; 23,7% tài khoản có ≥2 | **tắt** (`counterparty_id` rỗng) |
+
+  Một GRU chạy trên chuỗi dài 1 chỉ còn là một phép chiếu phi tuyến. Hệ quả: **kiến trúc đầy đủ ba nhánh chưa từng được đánh giá trên nguồn dữ liệu mà cả ba nhánh đều có dữ liệu để học**, nên mọi kết luận hiện tại về đóng góp của từng nhánh đều chưa thể tách khỏi giới hạn của nguồn. Lộ trình: bổ sung một nguồn có đồng thời định danh đối tác và chuỗi giao dịch theo tài khoản (ứng viên: IBM AMLworld — có nhãn riêng cho từng hình thái rửa tiền; Elliptic++ — dữ liệu thật có đồ thị ví theo thời gian).
 - **PaySim không có `device_id`/`ip_country` gốc** — nếu sinh bổ sung, bắt buộc gắn cờ `is_synthetic_field` và không được trình bày như dữ liệu thật.
 - **IEEE-CIS không có `counterparty_id`** → không dùng làm nguồn cho Graph Encoder; `account_id` là **pseudo-ID** suy luận từ tổ hợp `card1/card2/card3/card5/addr1/P_emaildomain` (heuristic phổ biến, có thể gộp/tách nhầm khách hàng). 339 cột `V*` của Vesta **không được công bố ý nghĩa** → không dùng cho diễn giải nghiệp vụ.
 - **Tỷ lệ gian lận trong `synthetic_vn` là THAM SỐ GIẢ ĐỊNH** (mặc định 1%) — không có nguồn công khai nào công bố tỷ lệ này ở mức chi tiết cần cho mô phỏng. Bắt buộc khai báo là giả định khi báo cáo.
 - **Rủi ro temporal leakage**: bắt buộc time-based split theo *giá trị* thời gian (không theo chỉ số dòng, không chia ngẫu nhiên) — xem [`src/data/preprocessing.py`](src/data/preprocessing.py).
+
+### 4.5. Tầng tăng cường dữ liệu bằng kịch bản tổng hợp
+
+[`src/augmentation/`](src/augmentation/) sinh thêm các **hành vi gian lận mà nguồn dữ liệu nền không có** (chuỗi money mule, chiếm quyền tài khoản, chia nhỏ giao dịch, lừa đảo đầu tư/tình cảm) rồi tiêm vào nền dữ liệu thật, tạo ra một bộ dữ liệu **có phiên bản kèm manifest**. Đặc tả kịch bản có thể do luật sinh hoặc do LLM sinh; đường gọi LLM nhận khóa API **chỉ từ biến môi trường** và manifest chỉ lưu **tên biến**, không lưu giá trị.
+
+Vì dữ liệu tổng hợp rất dễ tạo ra kết quả ảo, tầng này có các chốt an toàn **chặn trước khi dữ liệu được dùng**:
+
+| Chốt | Tác dụng |
+|---|---|
+| Hiệu chuẩn ghi nguồn **từng biên** | Phân biệt rõ biên nào *đo được từ dữ liệu thực*, biên nào từ *tri thức miền*, biên nào là *tham số vận hành* |
+| Bộ kiểm tra đặc tả dùng **từ vựng đóng** | Chặn LLM bịa ra cột hoặc kênh không có trong schema |
+| **Kiểm định đối kháng** | Nếu một bộ phân loại tách được dòng tổng hợp khỏi dòng thật thì bộ dữ liệu **bị loại** |
+| Ngưỡng ≥50 mẫu mỗi lớp, lấy trung bình 5 lần | Với số mẫu nhỏ, chỉ số đối kháng dao động mạnh theo seed nên không kết luận được |
+| `assert` chặn tập đánh giá | Tập đánh giá **luôn phải là dữ liệu thật** |
+
+Trong quá trình phát triển, kiểm định đối kháng đã **loại ba lần**, và cả ba nguyên nhân đều là chi tiết kỹ thuật chứ không phải ngữ nghĩa: số thập phân của số tiền, từ vựng cột `channel` của nền, và giờ trong ngày. Đây đúng là loại lỗi mà mắt người không thấy nhưng mô hình học được ngay — xem [`docs/augmentation.md`](docs/augmentation.md).
 
 ---
 
@@ -251,6 +275,20 @@ Cả hai nhánh **chỉ được bật** (`config.yaml: quantum.enabled`) sau kh
 | QAOA approximation ratio | Chất lượng nghiệm lượng tử | So với nghiệm ILP tối ưu |
 | Constraint violation rate | Tính khả thi nghiệm | Kiểm tra theo ràng buộc **gốc**, không phải bản đã penalize |
 | Decision Agreement Rate | Chất lượng giải thích | Tỷ lệ chuyên viên đồng thuận với đề xuất hệ thống |
+
+### 5.7. Giao thức báo cáo kết quả
+
+Các quy tắc dưới đây là **bắt buộc** với mọi số liệu được công bố từ dự án này. Chúng được rút ra từ chính các lỗi đã gặp trong quá trình đo, không phải quy ước hình thức.
+
+| Quy tắc | Lý do |
+|---|---|
+| Mọi số liệu là **trung vị của ≥3 seed, kèm dải giá trị**. Không bao giờ nêu một lần chạy đơn lẻ. | Phương sai giữa các seed có thể lớn hơn khoảng cách giữa các phương pháp. Một lần chạy đơn lẻ không phân biệt được "mô hình tốt" với "seed may". |
+| Mọi so sánh phải kèm **khoảng tin cậy** (bootstrap ghép cặp, `--bootstrap`). "Cao hơn" mà không có khoảng tin cậy thì **không phải kết luận**. | Chênh lệch AUPRC thô không cho biết khoảng cách có vượt nhiễu lấy mẫu hay chưa. |
+| "Có ý nghĩa thống kê" phải đi kèm **độ lớn**. | Khoảng tin cậy không chứa 0 chỉ nói "khác 0", không nói "khác đáng kể". |
+| **Không dùng ROC-AUC làm chỉ số chính** trên dữ liệu mất cân bằng; luôn đi kèm AUPRC và **số vụ bắt được theo ngân sách cảnh báo**. | ROC-AUC có thể ổn định trong khi AUPRC biến động mạnh — nghĩa là mô hình xếp tốt phần lớn dữ liệu nhưng sai ở phần đỉnh danh sách, mà chỉ phần đỉnh mới được dùng trong thực tế. |
+| Baseline phải **học từ tập train** rồi chấm trên tập test, không cross-validate trên chính tập test. | Cross-validate trên tập test làm số liệu baseline lạc quan, tức là so sánh không công bằng theo hướng có lợi cho mô hình của nhóm. |
+| Chọn checkpoint bằng **trung bình trượt** thay vì giá trị val đơn lẻ (xem [§7.3](#73-huấn-luyện-drre-tùy-chọn--dashboard-chạy-được-mà-không-cần-bước-này)). | Khi tập val ít nhãn dương, chọn theo giá trị cao nhất là chọn cả nhiễu, và con số val của epoch được chọn bị thiên lệch lạc quan. |
+| Số liệu chính dùng **dữ liệu thật**; dữ liệu mô phỏng chỉ dùng để chứng minh quy mô và tốc độ, luôn kèm cảnh báo lỗi sinh dữ liệu đã biết. | Dữ liệu mô phỏng có thể tạo ra tín hiệu không tồn tại trong thực tế (xem [§4.4](#44-giới-hạn-dữ-liệu-đã-biết)). |
 
 ---
 
@@ -373,10 +411,43 @@ python -m src.drre.train --source synthetic_vn --epochs 15 --batch-size 256 --ch
 | `--batch-size` | Kích thước **cửa sổ thời gian** (không phải batch ngẫu nhiên) |
 | `--checkpoint` | Đường dẫn lưu checkpoint |
 | `--num-negatives` | Số mẫu âm cho ℒ_contrast (mặc định 5) |
+| `--select` | Cách chọn checkpoint theo val AUPRC: `smoothed` (mặc định) \| `argmax` — xem bên dưới |
+| `--runs-dir` | Thư mục ghi manifest thí nghiệm (mặc định `reports/runs/`). Để trống để không ghi. |
+| `--processed-dir` | Thư mục dữ liệu đã tiền xử lý — dùng khi làm việc với nhiều lát dữ liệu khác nhau |
+| `--no-graph` | Tắt nhánh đồ thị. **Bắt buộc với `ieee_cis`** (không có `counterparty_id`) |
+| `--disable-branch` | Tắt một nhánh để làm ablation, vd. `--disable-branch behavior` |
 
-Vòng huấn luyện tự lưu checkpoint có **Val AUPRC tốt nhất** và in log mỗi epoch.
+**Chọn checkpoint chống nhiễu (`--select smoothed`, mặc định).** Khi tập val có ít nhãn dương, đường val dao động mạnh giữa các epoch liền nhau, nên lấy epoch có val cao nhất là lấy cả nhiễu. Chế độ `smoothed` chấm mỗi epoch bằng:
 
-> ⚠️ **Ghi chú hiệu năng:** Behavior Memory chạy tuần tự từng giao dịch bằng vòng lặp Python — đúng về mặt toán học nhưng chậm, và **chưa được tối ưu cho quy mô lớn**. Với PaySim, dùng subset (§7.1) thay vì bộ đầy đủ. Nếu log báo *"cửa sổ không có cặp ℒ_pred"* với tỷ lệ cao, tăng `--batch-size`.
+```
+điểm chọn = min( trung bình trượt CÓ TÂM 3 epoch , val AUPRC của CHÍNH epoch đó )
+```
+
+Hai thành phần chặn hai kiểu nhiễu khác nhau và cần cả hai: trung bình trượt loại **đỉnh đơn lẻ** (một epoch chỉ thắng khi hai epoch kề nó cũng tốt), còn phép `min` loại epoch **đứng kề** một đỉnh đơn lẻ — không có nó thì một epoch tự nó rất tệ vẫn thắng nhờ láng giềng. Nguyên tắc: *không epoch nào được điểm cao hơn mức chính nó đã thể hiện.* Đánh đổi: epoch đầu và epoch cuối không nằm trong diện được chọn (không đủ epoch kề). Dùng `--select argmax` để quay lại cách chọn theo giá trị đơn lẻ.
+
+**Manifest thí nghiệm.** Mỗi lần chạy ghi một tệp JSON vào `reports/runs/` gồm: commit git + cờ dirty, phiên bản thư viện, **dấu vân tay sha256 của tệp dữ liệu**, seed, toàn bộ siêu tham số, và kết quả từng epoch. Phần gọn được nhúng luôn vào checkpoint. Nhờ đó mọi con số đều truy được về đúng lát dữ liệu và đúng commit đã tạo ra nó — xem [`src/tracking.py`](src/tracking.py).
+
+**Đánh giá checkpoint trên tập test** bằng một lệnh:
+
+```bash
+python scripts/evaluate.py --source ieee_cis --split test \
+  --checkpoint models/drre_ieee.pt \
+  --compare-baseline gbdt_them_lich_su --bootstrap 1000 --by-period 4
+```
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `--compare-checkpoint` | Checkpoint thứ hai (vd. bản ablation), kèm khoảng tin cậy cho hiệu số AUPRC |
+| `--compare-baseline` | So checkpoint với **một baseline cổ điển**, kèm khoảng tin cậy — đây là phép đo trả lời câu "DRRE có hơn phương pháp thông thường không" |
+| `--by-period N` | Đo trên N giai đoạn thời gian liên tiếp. Bảng ghi kèm **lift** vì AUPRC thô không so sánh được giữa các giai đoạn: mỗi giai đoạn có mốc ngẫu nhiên riêng |
+| `--bootstrap` | Số lần lấy mẫu bootstrap ghép cặp (mặc định 300) |
+| `--score-batch-size` | Chấm điểm theo lô (mặc định 8.192 dòng) |
+
+Script tự in cảnh báo khi một giai đoạn có **dưới 30 nhãn dương** (AUPRC ở đó quá nhiễu để kết luận xu hướng), và khi checkpoint không nạp được nên rơi về quy tắc thống kê. Baseline cổ điển được **học từ tập train** rồi chấm trên tập test.
+
+> ⚠️ **Ghi chú hiệu năng:** encoder đã được **vector hóa theo bước thời gian** — ở bước *t*, mọi tài khoản có ít nhất *t+1* giao dịch trong cửa sổ chạy trong MỘT lần forward, nên số lần forward bằng độ dài chuỗi dài nhất chứ không bằng số giao dịch. Đo thực tế **nhanh 29–42 lần** so với bản tuần tự, nhờ đó huấn luyện được **3 triệu dòng PaySim trong khoảng 40–43 phút** trên CPU 6 nhân. Bản tuần tự cũ được giữ lại làm chuẩn đối chiếu trong kiểm thử — bất biến quan trọng nhất là hai bản phải cho cùng kết quả.
+>
+> Với quy mô từ hàng triệu dòng, **giữ `--score-batch-size` ở mức mặc định**: chấm toàn bộ tập val trong một lô vừa làm tiến trình chết vì hết bộ nhớ, vừa khiến đồ thị của cả tập nhìn thấy quan hệ ở tương lai (rò rỉ). Nếu log báo *"cửa sổ không có cặp ℒ_pred"* với tỷ lệ cao, tăng `--batch-size`.
 
 ### 7.4. Chạy dashboard
 
@@ -466,7 +537,15 @@ finguard/
 │   └── README.md                    # Data dictionary, nguồn, giới hạn
 │
 ├── docs/
-│   └── architecture.md              # Đặc tả kỹ thuật đầy đủ (8 module, công thức)
+│   ├── architecture.md              # Đặc tả kỹ thuật đầy đủ (8 module, công thức)
+│   └── augmentation.md              # Tầng tăng cường dữ liệu: hiệu chuẩn, kiểm định đối kháng
+│
+├── reports/
+│   ├── runs/                        # Manifest mỗi lần huấn luyện (commit, seed, sha256 dữ liệu)
+│   └── eval/                        # Báo cáo đánh giá trên tập test + khoảng tin cậy
+│
+├── scripts/
+│   └── evaluate.py                  # Đánh giá checkpoint trên tập test bằng MỘT lệnh
 │
 ├── notebooks/
 │   ├── 01_data_preprocessing.ipynb
@@ -476,6 +555,18 @@ finguard/
 │   └── 05_qape_benchmark.ipynb
 │
 ├── src/
+│   ├── tracking.py                  # Manifest thí nghiệm: commit, phiên bản lib, sha256 dữ liệu
+│   ├── augmentation/
+│   │   ├── spec_schema.py           # Từ vựng đóng + bộ kiểm tra đặc tả kịch bản
+│   │   ├── calibration.py           # Hiệu chuẩn biên, ghi NGUỒN của từng biên
+│   │   ├── llm_adapter.py           # Sinh đặc tả bằng LLM (khóa API chỉ từ biến môi trường)
+│   │   ├── rule_specs.py            # Sinh đặc tả bằng luật (không cần LLM)
+│   │   ├── simulator.py             # Mô phỏng giao dịch từ đặc tả
+│   │   ├── quality.py               # Kiểm định đối kháng + chống rò rỉ dấu vết
+│   │   ├── dataset.py               # Bộ dữ liệu có phiên bản + manifest
+│   │   ├── mining.py                # Khai thác đối kháng (mặc định TẮT)
+│   │   ├── protocol.py              # Bootstrap ghép cặp + cổng tuyên bố kết quả
+│   │   └── build.py                 # CLI dựng bộ dữ liệu tăng cường
 │   ├── data/
 │   │   ├── schema.py                # Unified Schema (TransactionRecord + audit nguồn trường)
 │   │   ├── loaders.py               # load_paysim / load_ieee_cis / load_synthetic_vn
@@ -488,7 +579,7 @@ finguard/
 │   │   ├── fusion.py                # Adaptive Risk Fusion (gating network β)
 │   │   ├── losses.py                # ℒ_pred (EMA target) + ℒ_contrast + ℒ_BCE
 │   │   ├── model.py                 # Lắp ráp DRRE (Module 3′)
-│   │   └── train.py                 # Training loop theo cửa sổ thời gian
+│   │   └── train.py                 # Training loop vector hóa + chọn checkpoint chống nhiễu
 │   ├── scoring/
 │   │   └── risk_scoring.py          # Module 5 — điểm 0–100 + phân tier
 │   ├── explainability/
@@ -519,7 +610,11 @@ finguard/
     ├── test_qape_quantum_solvers.py
     ├── test_benchmark_real_data.py
     ├── test_scoring_service.py
-    └── test_vqc.py
+    ├── test_vqc.py
+    ├── test_branch_controls.py
+    ├── test_augmentation.py          # Tầng tăng cường dữ liệu
+    ├── test_train_vectorized.py      # Bản vector hóa PHẢI khớp bản tuần tự
+    └── test_tracking_and_eval.py     # Manifest + script đánh giá
 ```
 
 ---
@@ -527,6 +622,27 @@ finguard/
 ## 9. Kết quả
 
 *Đang hoàn thiện.* Bộ benchmark định lượng sẽ được cập nhật sau khi hoàn tất các hạng mục ưu tiên trong lộ trình phát triển — đặc biệt là mở rộng bộ đặc trưng đầu vào cho DRRE và bổ sung baseline đối chứng mạnh.
+
+**Hạ tầng đo lường đã sẵn sàng.** Phần còn thiếu là số liệu, không phải công cụ để tạo ra số liệu:
+
+| Năng lực | Trạng thái |
+|---|---|
+| Huấn luyện quy mô hàng triệu dòng (3 triệu dòng trong ~40–43 phút, CPU 6 nhân) | ✅ |
+| Manifest truy nguyên mỗi lần chạy: commit, seed, phiên bản lib, sha256 dữ liệu | ✅ |
+| Đánh giá trên tập test bằng một lệnh, kèm **khoảng tin cậy bootstrap ghép cặp** | ✅ |
+| So sánh với baseline cổ điển học từ tập train (`--compare-baseline`) | ✅ |
+| Đo theo từng giai đoạn thời gian kèm lift (`--by-period`) | ✅ |
+| Chọn checkpoint chống nhiễu (`--select smoothed`) | ✅ |
+| Tầng tăng cường dữ liệu có kiểm định đối kháng | ✅ (đã sinh, **chưa dùng để huấn luyện**) |
+| Nguồn dữ liệu kiểm được **đồng thời cả ba nhánh** DRRE | ⬜ xem [§4.4](#44-giới-hạn-dữ-liệu-đã-biết) |
+| Bộ đặc trưng đầu vào mở rộng (hiện tại DRRE chỉ nhận 2 đặc trưng) | ⬜ |
+
+Lộ trình ưu tiên, theo thứ tự:
+
+1. **Mở rộng bộ đặc trưng đầu vào cho DRRE.** Hiện tại DRRE chỉ nhận `amount_norm` và `channel_encoded`, trong khi baseline đối chứng mạnh dùng thêm giờ, số giao dịch trước đó, z-score số tiền và khoảng cách thời gian. Mọi so sánh trước khi bịt khoảng cách này đều là so sánh hai lượng thông tin khác nhau, không phải so sánh hai kiến trúc.
+2. **Dùng bộ dữ liệu tăng cường để huấn luyện** ([§4.5](#45-tầng-tăng-cường-dữ-liệu-bằng-kịch-bản-tổng-hợp)) — nguồn duy nhất hiện có chứa chuỗi money mule và chuỗi chiếm quyền tài khoản, tức là điều kiện dữ liệu để Behavior Memory có thể thể hiện tác dụng.
+3. **Bổ sung nguồn dữ liệu kiểm được cả ba nhánh** ([§4.4](#44-giới-hạn-dữ-liệu-đã-biết)) — có đồng thời định danh đối tác và chuỗi giao dịch theo tài khoản.
+4. **Chạy mỗi cấu hình ≥3 seed** và báo cáo theo [§5.7](#57-giao-thức-báo-cáo-kết-quả).
 
 Danh sách KPI dự kiến công bố (xem `docs/architecture.md` §11 và [§5.6](#56-chỉ-số-đánh-giá) của file này):
 

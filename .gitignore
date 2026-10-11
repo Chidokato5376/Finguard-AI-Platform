@@ -28,3 +28,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Bản xuất PDF của tài liệu — giữ bản .md làm nguồn, không commit bản xuất
+*.pdf
