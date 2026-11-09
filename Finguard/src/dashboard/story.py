@@ -159,8 +159,8 @@ def _add_story_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     # Thói quen chi tiêu: chỉ dùng các giao dịch TRƯỚC giao dịch đang xét
     log_amount = np.log1p(df["amount"].astype(float))
-    n_prior = df.groupby("account_id", sort=False).cumcount()
-    mean_prior = (log_amount.groupby(df["account_id"]).cumsum() - log_amount) / n_prior.where(n_prior > 0)
+    n_prior = df.groupby("account_id", sort=False, observed=True).cumcount()
+    mean_prior = (log_amount.groupby(df["account_id"], observed=True).cumsum() - log_amount) / n_prior.where(n_prior > 0)
     df["n_prior"] = n_prior
     df["typical_amount"] = np.expm1(mean_prior)
     df["amount_ratio"] = df["amount"] / df["typical_amount"]
@@ -323,6 +323,46 @@ def _chain(index: dict, row, time_col: str) -> list:
     upstream = _follow(index, focus, row[time_col], row["amount"], forward=False, avoid={receiver})
     downstream = _follow(index, receiver, row[time_col], row["amount"], forward=True, avoid={focus})
     return upstream[::-1] + downstream
+
+
+@st.cache_resource(show_spinner="Đang nạp kho tri thức kiểu hình rửa tiền...")
+def get_typology_retriever(reference_signature: str, _reference: pd.DataFrame):
+    """Bộ truy xuất kiểu hình, đã chuẩn hóa theo mặt bằng của chính bộ dữ liệu đang xem.
+
+    Tiền tố `_` của `_reference` là BẮT BUỘC: Streamlit băm mọi tham số để
+    làm khóa cache, mà DataFrame thì không băm được — thiếu dấu gạch dưới là
+    trang nổ lúc chạy. Khóa cache thật nằm ở `reference_signature`, nên chuỗi
+    đó phải đổi khi dữ liệu đổi.
+
+    Lưu ý về mặt phương pháp: tham chiếu z-score ở đây fit trên TOÀN BỘ bộ dữ
+    liệu dashboard đang nạp, không phải trên tập train riêng. Với dashboard
+    thì đó chính là ngữ nghĩa đúng — "giao dịch này lệch bao nhiêu so với mặt
+    bằng chung của lô đang xem". Khi đánh giá mô hình thì vẫn phải fit trên
+    train (xem src/knowledge/retriever.py::fit_reference).
+    """
+    from src.knowledge import TypologyRetriever
+
+    return TypologyRetriever().fit_reference(_reference)
+
+
+def typology_narrative(scored: pd.DataFrame, row) -> object | None:
+    """Lời giải thích theo kiểu hình rửa tiền cho một giao dịch, hoặc None.
+
+    Trả về None khi bộ dữ liệu chưa có đủ đặc trưng mạng lưới (vd. nguồn
+    IEEE-CIS không có người nhận nên không có đặc trưng đối tác nào).
+    """
+    from src.knowledge import SIGNATURE_FEATURES, build_narrative
+
+    if not any(feature in scored.columns for feature in SIGNATURE_FEATURES):
+        return None
+    signature = f"{len(scored)}-{sorted(set(scored.columns) & set(SIGNATURE_FEATURES))}"
+    try:
+        retriever = get_typology_retriever(signature, scored)
+        return build_narrative(row.to_dict(), retriever, risk_score=float(row["risk_score"]))
+    except (ValueError, RuntimeError, KeyError):
+        # Kho tri thức là phần BỔ SUNG cho dashboard. Nó hỏng thì trang vẫn
+        # phải hiển thị được phần còn lại, nên nuốt lỗi ở đây là có chủ ý.
+        return None
 
 
 @st.cache_data(show_spinner="Đang lần theo các dòng tiền...", max_entries=12)

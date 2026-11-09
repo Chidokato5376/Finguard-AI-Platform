@@ -3,7 +3,7 @@ import streamlit as st
 
 from src.dashboard.story import (
     CHANNEL_NAMES, LEVELS, chain_members, explain, flow_figure, fmt_money, fmt_when, get_view,
-    mask_account, money_flow, tx_label,
+    mask_account, money_flow, tx_label, typology_narrative,
 )
 
 source, scored, view = get_view()
@@ -75,6 +75,31 @@ with left:
             "Tỷ trọng (%)": [100 * row["beta_behavior"], 100 * row["beta_graph"], 100 * row["beta_transaction"]],
         })
         st.bar_chart(weights, x="Nguồn thông tin", y="Tỷ trọng (%)", horizontal=True, height=180)
+
+        # Giải thích NỘI SINH: lấy từ đúng những con số mô hình tính ra lúc
+        # chấm điểm (alpha_k, beta), không phải từ một bộ luật viết tay.
+        from src.explainability import explain_scored_row
+
+        try:
+            model_says = explain_scored_row(row)
+        except KeyError:
+            model_says = None
+        if model_says is not None:
+            st.caption(f"{model_says.behavior_deviation_summary}. "
+                       f"{model_says.dominant_signal_summary}.")
+
+    narrative = typology_narrative(scored, row)
+    if narrative is not None and getattr(narrative, "typology", None):
+        st.markdown("##### Giống kiểu rửa tiền nào?")
+        with st.container(border=True):
+            st.markdown(f"**{narrative.typology_vi}** (`{narrative.typology}`) — "
+                        f"độ khớp {narrative.confidence:.2f}")
+            if narrative.signals:
+                st.markdown("Tín hiệu quan sát được: " + "; ".join(narrative.signals) + ".")
+            st.markdown(narrative.mechanism)
+        st.caption("Kiểu hình được truy xuất từ kho tri thức rửa tiền bằng vector, "
+                   "dựa trên tín hiệu mạng lưới của chính giao dịch này. "
+                   "Đây là gợi ý để điều tra, không phải kết luận.")
 
     if signs:
         st.markdown("##### Dấu hiệu khác nên kiểm tra thêm")

@@ -151,7 +151,10 @@ def calibrate_from_real(
     # Số giao dịch mỗi ca: suy từ số giao dịch của các tài khoản CÓ gian lận
     fraud_accounts = set(df.loc[label, "account_id"])
     if fraud_accounts:
-        per_acc = df[df["account_id"].isin(fraud_accounts)].groupby("account_id").size()
+        per_acc = (
+            df[df["account_id"].isin(fraud_accounts)]
+            .groupby("account_id", observed=True).size()
+        )
         b_lo, b_hi = np.percentile(per_acc.to_numpy(), [50.0, 90.0])
         bounds["burst_count"] = _clip((max(1.0, float(b_lo)), max(2.0, float(b_hi))), "burst_count")
         sources["burst_count"] = f"du_lieu_thuc (phân vị 50–90 số giao dịch của tài khoản có gian lận, n={len(per_acc)})"
