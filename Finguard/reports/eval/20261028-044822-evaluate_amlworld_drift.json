@@ -1,0 +1,720 @@
+{
+  "kind": "evaluate_amlworld_drift",
+  "run_id": "20261028-044822-evaluate_amlworld_drift",
+  "started_utc": "2026-10-28T04:48:14+00:00",
+  "finished_utc": "2026-10-28T04:48:22+00:00",
+  "duration_seconds": 506.7,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models\\drre_aml_probe.pt",
+    "compare_checkpoint": null,
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": true,
+    "compare_baseline": null,
+    "by_period": 0,
+    "by_typology": true,
+    "universe": "clean",
+    "scored_rows": 1108,
+    "total_rows": 1108
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_aml_v2\\amlworld_drift.parquet",
+      "exists": true,
+      "bytes": 9939853,
+      "modified_utc": "2026-10-24T04:22:24+00:00",
+      "sha256": "5644c446dadf308cff35bce920da51ce",
+      "hash_scope": "full",
+      "n_rows": 1108,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "timestamp",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "currency",
+        "is_fx",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "laundering_pattern",
+        "amount_norm",
+        "log_n_prior",
+        "log_amount_ratio",
+        "z_amount",
+        "log_gap",
+        "new_counterparty",
+        "log_n_distinct_cp",
+        "log_n_prior_as_cp",
+        "log_n_distinct_senders",
+        "is_round_amount",
+        "hour_sin",
+        "hour_cos",
+        "dow",
+        "log_amt_out_prior",
+        "log_amt_in_prior",
+        "log_n_in_prior",
+        "passthrough_ratio",
+        "flow_imbalance",
+        "log_cp_amt_in_prior",
+        "eval_universe",
+        "channel_encoded"
+      ],
+      "n_positive": 655,
+      "positive_rate": 0.5911552346570397,
+      "time_col": "timestamp",
+      "time_min": "2022-09-11 00:05:00",
+      "time_max": "2022-09-18 16:18:00",
+      "n_accounts": 403
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.5911552346570397,
+    "metrics": {
+      "drre_aml_probe.pt (drre_trained)": {
+        "auprc": 0.6508765947498629,
+        "roc_auc": 0.5117789798291289,
+        "ece": 0.40417436048872635,
+        "recall@500": 0.47480916030534354,
+        "fpr@500": 0.378,
+        "caught@500": 311.0,
+        "recall@1000": 0.8595419847328244,
+        "fpr@1000": 0.437,
+        "caught@1000": 563.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "ngau_nhien": {
+        "auprc": 0.5926434471132892,
+        "roc_auc": 0.5144128203831959,
+        "ece": 0.24158981175616973,
+        "recall@500": 0.46106870229007635,
+        "fpr@500": 0.396,
+        "caught@500": 302.0,
+        "recall@1000": 0.9053435114503817,
+        "fpr@1000": 0.407,
+        "caught@1000": 593.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "chi_so_tien": {
+        "auprc": 0.5933795184181883,
+        "roc_auc": 0.5226918086379186,
+        "ece": 0.4064587523916968,
+        "recall@500": 0.4595419847328244,
+        "fpr@500": 0.398,
+        "caught@500": 301.0,
+        "recall@1000": 0.9251908396946565,
+        "fpr@1000": 0.394,
+        "caught@1000": 606.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "logistic_cung_dau_vao": {
+        "auprc": 0.5933795184181883,
+        "roc_auc": 0.5226918086379186,
+        "ece": 0.25881153427503056,
+        "recall@500": 0.4595419847328244,
+        "fpr@500": 0.398,
+        "caught@500": 301.0,
+        "recall@1000": 0.9251908396946565,
+        "fpr@1000": 0.394,
+        "caught@1000": 606.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "gbdt_cung_dau_vao": {
+        "auprc": 0.6210211816933919,
+        "roc_auc": 0.5487892422021132,
+        "ece": 0.5776664923154808,
+        "recall@500": 0.48091603053435117,
+        "fpr@500": 0.37,
+        "caught@500": 315.0,
+        "recall@1000": 0.9282442748091603,
+        "fpr@1000": 0.392,
+        "caught@1000": 608.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "gbdt_them_lich_su": {
+        "auprc": 0.6143409649397189,
+        "roc_auc": 0.5028006673070117,
+        "ece": 0.4577604455677183,
+        "recall@500": 0.48244274809160304,
+        "fpr@500": 0.368,
+        "caught@500": 316.0,
+        "recall@1000": 0.8717557251908397,
+        "fpr@1000": 0.429,
+        "caught@1000": 571.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "gbdt_dac_trung_day_du": {
+        "auprc": 0.7857750956358135,
+        "roc_auc": 0.6413427025933977,
+        "ece": 0.3201988724479692,
+        "recall@500": 0.6229007633587786,
+        "fpr@500": 0.184,
+        "caught@500": 408.0,
+        "recall@1000": 0.8488549618320611,
+        "fpr@1000": 0.444,
+        "caught@1000": 556.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "gbdt_can_bang": {
+        "auprc": 0.8870440471431702,
+        "roc_auc": 0.859809918608766,
+        "ece": 0.29326996960018725,
+        "recall@500": 0.6916030534351145,
+        "fpr@500": 0.094,
+        "caught@500": 453.0,
+        "recall@1000": 0.9847328244274809,
+        "fpr@1000": 0.355,
+        "caught@1000": 645.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "cay_quyet_dinh": {
+        "auprc": 0.8461624573123556,
+        "roc_auc": 0.8263636823214195,
+        "ece": 0.25982779418156204,
+        "recall@500": 0.6641221374045801,
+        "fpr@500": 0.13,
+        "caught@500": 435.0,
+        "recall@1000": 0.9740458015267176,
+        "fpr@1000": 0.362,
+        "caught@1000": 638.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "random_forest": {
+        "auprc": 0.9174178855832374,
+        "roc_auc": 0.8890854860724937,
+        "ece": 0.06392510657364071,
+        "recall@500": 0.6977099236641221,
+        "fpr@500": 0.086,
+        "caught@500": 457.0,
+        "recall@1000": 0.9801526717557252,
+        "fpr@1000": 0.358,
+        "caught@1000": 642.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "isolation_forest": {
+        "auprc": 0.6947624708625172,
+        "roc_auc": 0.6530947205230608,
+        "ece": 0.10130259126308128,
+        "recall@500": 0.5297709923664122,
+        "fpr@500": 0.306,
+        "caught@500": 347.0,
+        "recall@1000": 0.966412213740458,
+        "fpr@1000": 0.367,
+        "caught@1000": 633.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      },
+      "bang_tra_kenh": {
+        "auprc": 0.5911552346570397,
+        "roc_auc": 0.5,
+        "ece": 0.5852020351560984,
+        "recall@500": 0.45190839694656487,
+        "fpr@500": 0.408,
+        "caught@500": 296.0,
+        "recall@1000": 0.9007633587786259,
+        "fpr@1000": 0.41,
+        "caught@1000": 590.0,
+        "recall@2000": 1.0,
+        "fpr@2000": 0.40884476534296027,
+        "caught@2000": 655.0
+      }
+    },
+    "bootstrap": null,
+    "bootstrap_vs_baseline": null,
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| bang_tra_kenh | 0.5912 | 0.500 | 296 | 590 | 655 |\n| ngau_nhien | 0.5926 | 0.514 | 302 | 593 | 655 |\n| chi_so_tien | 0.5934 | 0.523 | 301 | 606 | 655 |\n| logistic_cung_dau_vao | 0.5934 | 0.523 | 301 | 606 | 655 |\n| gbdt_them_lich_su | 0.6143 | 0.503 | 316 | 571 | 655 |\n| gbdt_cung_dau_vao | 0.6210 | 0.549 | 315 | 608 | 655 |\n| drre_aml_probe.pt (drre_trained) | 0.6509 | 0.512 | 311 | 563 | 655 |\n| isolation_forest | 0.6948 | 0.653 | 347 | 633 | 655 |\n| gbdt_dac_trung_day_du | 0.7858 | 0.641 | 408 | 556 | 655 |\n| cay_quyet_dinh | 0.8462 | 0.826 | 435 | 638 | 655 |\n| gbdt_can_bang | 0.8870 | 0.860 | 453 | 645 | 655 |\n| random_forest | 0.9174 | 0.889 | 457 | 642 | 655 |",
+    "by_period": null,
+    "by_period_markdown_table": null,
+    "by_typology": [
+      {
+        "typology": "GATHER-SCATTER",
+        "n_pos": 254,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 254,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 254,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "SCATTER-GATHER",
+        "n_pos": 129,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 129,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 129,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "FAN-IN",
+        "n_pos": 66,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 66,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "FAN-OUT",
+        "n_pos": 66,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 66,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 66,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "CYCLE",
+        "n_pos": 44,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 44,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 44,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "RANDOM",
+        "n_pos": 41,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 41,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 41,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "STACK",
+        "n_pos": 33,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 33,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 33,
+            "recall": 1.0
+          }
+        }
+      },
+      {
+        "typology": "BIPARTITE",
+        "n_pos": 22,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained)": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "ngau_nhien": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "chi_so_tien": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "gbdt_them_lich_su": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "gbdt_can_bang": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "cay_quyet_dinh": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "random_forest": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "isolation_forest": {
+            "caught": 22,
+            "recall": 1.0
+          },
+          "bang_tra_kenh": {
+            "caught": 22,
+            "recall": 1.0
+          }
+        }
+      }
+    ],
+    "by_typology_markdown_table": "| Kiểu hình (top 2,000) | Nhãn dương | random_forest | gbdt_can_bang | cay_quyet_dinh | gbdt_dac_trung_day_du | isolation_forest | drre_aml_probe.pt (drre_trained) | gbdt_cung_dau_vao | gbdt_them_lich_su | chi_so_tien | logistic_cung_dau_vao | ngau_nhien | bang_tra_kenh |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| GATHER-SCATTER | 254 | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) | 254 (100%) |\n| SCATTER-GATHER | 129 | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) | 129 (100%) |\n| FAN-IN | 66 | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) |\n| FAN-OUT | 66 | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) | 66 (100%) |\n| CYCLE | 44 | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) | 44 (100%) |\n| RANDOM | 41 | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) | 41 (100%) |\n| STACK | 33 | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) | 33 (100%) |\n| BIPARTITE | 22 | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) | 22 (100%) |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "bae5bbba015da49d7bd87e57c2ae3e85fd193cda",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts\\evaluate.py",
+      "--source",
+      "amlworld",
+      "--split",
+      "drift",
+      "--processed-dir",
+      "data\\processed_aml_v2",
+      "--checkpoint",
+      "models\\drre_aml_probe.pt",
+      "--by-typology"
+    ]
+  },
+  "notes": []
+}
