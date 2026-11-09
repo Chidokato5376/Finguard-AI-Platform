@@ -28,9 +28,14 @@ from src.drre.train import (
 
 
 def _make_synthetic_processed_df(n_accounts: int = 15, n_transactions: int = 300, seed: int = 0) -> pd.DataFrame:
-    """Dựng DataFrame đúng schema đầu ra của src/data/preprocessing.py
-    (account_id, counterparty_id, step, amount_norm, channel_encoded, label).
+    """Dựng DataFrame đúng schema đầu ra của src/data/preprocessing.py.
+
+    PHẢI đi qua add_causal_features giống pipeline thật: từ 2026-10-17 mô hình
+    nhận 10-15 đặc trưng tùy nguồn, nên một fixture chỉ có amount_norm và
+    channel_encoded sẽ không còn phản ánh dữ liệu mà train() thực sự đọc.
     """
+    from src.data.features import add_causal_features
+
     rng = np.random.default_rng(seed)
     accounts = [f"ACC_{i}" for i in range(n_accounts)]
     rows = []
@@ -40,11 +45,17 @@ def _make_synthetic_processed_df(n_accounts: int = 15, n_transactions: int = 300
             "account_id": sender,
             "counterparty_id": receiver,
             "step": step,
-            "amount_norm": float(rng.normal(0, 1)),
+            # synthetic_vn dùng mốc thời gian thật -> giữ cả hai cột như pipeline
+            "timestamp": pd.Timestamp("2026-01-01") + pd.Timedelta(hours=step),
+            "amount": float(np.exp(rng.normal(13, 1))),
             "channel_encoded": int(rng.integers(0, 3)),
             "label": bool(rng.random() < 0.05),
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df["amount_norm"] = np.log1p(df["amount"])
+    df = add_causal_features(df, "synthetic_vn")
+    df["eval_universe"] = True
+    return df
 
 
 @pytest.fixture
@@ -237,3 +248,88 @@ def test_train_rejects_unknown_selection(processed_dir: Path, tmp_path: Path) ->
             processed_dir=str(processed_dir), checkpoint_path=str(tmp_path / "c.pt"),
             seed=1, runs_dir=None, selection="trung_binh",
         )
+
+
+# --------------------------------------------------------------------------
+# Chạy tiếp theo từng epoch (--resume / --stop-after)
+# --------------------------------------------------------------------------
+
+def _train_kwargs(processed_dir: Path, checkpoint: Path, runs_dir: Path | None) -> dict:
+    # carry_state=True để phép thử bao cả BehaviorStateStore; smoothed + 4 epoch
+    # để lịch sử chọn checkpoint (snapshots) thực sự phải đi qua ranh giới phiên.
+    return {
+        "source": "synthetic_vn", "epochs": 4, "batch_size": 32, "lr": 1e-2,
+        "num_negatives": 3, "processed_dir": str(processed_dir),
+        "checkpoint_path": str(checkpoint), "seed": 11, "runs_dir": runs_dir,
+        "selection": "smoothed", "carry_state": True, "state_cache": 64,
+    }
+
+
+def test_resume_matches_uninterrupted_run(processed_dir: Path, tmp_path: Path) -> None:
+    """Bốn phiên x 1 epoch phải cho ĐÚNG checkpoint và đúng dãy val AUPRC
+    như một lần chạy liền 4 epoch. Nếu lệch, chia nhỏ lần huấn luyện đã lặng
+    lẽ đổi thí nghiệm (thường do quên lưu trạng thái RNG hoặc optimizer)."""
+    straight, split = tmp_path / "straight", tmp_path / "split"
+    train(**_train_kwargs(processed_dir, straight / "c.pt", straight / "runs"))
+
+    for _ in range(4):
+        train(**_train_kwargs(processed_dir, split / "c.pt", split / "runs"),
+              resume=True, stop_after=1)
+
+    a = torch.load(straight / "c.pt", map_location="cpu")
+    b = torch.load(split / "c.pt", map_location="cpu")
+    for key in ("drre_state_dict", "risk_engine_state_dict"):
+        assert a[key].keys() == b[key].keys()
+        for name in a[key]:
+            assert torch.equal(a[key][name], b[key][name]), f"{key}.{name} lệch sau khi chạy tiếp"
+
+    runs = list((split / "runs").glob("*.json"))
+    assert len(runs) == 1, "chỉ ghi manifest một lần, khi đã chạy đủ số epoch"
+    ra = json.loads(next((straight / "runs").glob("*.json")).read_text(encoding="utf-8"))
+    rb = json.loads(runs[0].read_text(encoding="utf-8"))
+    assert [e["val_auprc"] for e in rb["results"]["epochs"]] == \
+        [e["val_auprc"] for e in ra["results"]["epochs"]]
+    assert rb["results"]["best_epoch"] == ra["results"]["best_epoch"]
+    assert [s["epochs"] for s in rb["results"]["sessions"]] == [[1], [2], [3], [4]]
+
+
+def test_partial_session_writes_no_manifest(processed_dir: Path, tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    train(**_train_kwargs(processed_dir, tmp_path / "c.pt", runs_dir), stop_after=2)
+    assert not list(runs_dir.glob("*.json")) if runs_dir.exists() else True
+    assert (tmp_path / "c.resume.pt").exists()
+
+
+def test_refuses_to_restart_over_unfinished_run(processed_dir: Path, tmp_path: Path) -> None:
+    """Quên --resume không được lặng lẽ xóa nhiều giờ huấn luyện."""
+    kwargs = _train_kwargs(processed_dir, tmp_path / "c.pt", None)
+    train(**kwargs, stop_after=1)
+    with pytest.raises(FileExistsError, match="--resume"):
+        train(**kwargs)
+
+
+def test_resume_rejects_changed_hyperparameters(processed_dir: Path, tmp_path: Path) -> None:
+    kwargs = _train_kwargs(processed_dir, tmp_path / "c.pt", None)
+    train(**kwargs, stop_after=1)
+    with pytest.raises(ValueError, match="lr"):
+        train(**{**kwargs, "lr": 5e-3}, resume=True)
+
+
+def test_resume_after_completion_is_a_noop(processed_dir: Path, tmp_path: Path) -> None:
+    kwargs = _train_kwargs(processed_dir, tmp_path / "c.pt", None)
+    train(**kwargs)
+    before = (tmp_path / "c.pt").read_bytes()
+    train(**kwargs, resume=True)
+    assert (tmp_path / "c.pt").read_bytes() == before, "chạy lại sau khi xong không được train lại"
+
+
+def test_resume_can_extend_epochs(processed_dir: Path, tmp_path: Path) -> None:
+    """Chạy 4 epoch rồi nâng --epochs lên 5 phải giống hệt chạy thẳng 5 epoch."""
+    straight, extended = tmp_path / "straight", tmp_path / "extended"
+    train(**{**_train_kwargs(processed_dir, straight / "c.pt", None), "epochs": 5})
+    train(**_train_kwargs(processed_dir, extended / "c.pt", None))
+    train(**{**_train_kwargs(processed_dir, extended / "c.pt", None), "epochs": 5}, resume=True)
+
+    a = torch.load(straight / "c.pt", map_location="cpu")["drre_state_dict"]
+    b = torch.load(extended / "c.pt", map_location="cpu")["drre_state_dict"]
+    assert all(torch.equal(a[k], b[k]) for k in a)
