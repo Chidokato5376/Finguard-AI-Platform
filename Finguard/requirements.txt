@@ -69,6 +69,16 @@ pulp>=2.8
 
 # --- Explainability ---
 shap>=0.45                     # đầu dò bán giám sát phụ, không phải nguồn giải thích chính
+# LƯU Ý: shap khai báo ở đây nhưng CHƯA được cài trong .venv của nhóm (kiểm
+# 2026-10-19). src/explainability/attribution.py vì vậy mặc định dùng quy kết
+# bằng HOÁN VỊ trên AUPRC (chỉ cần scikit-learn) và chỉ dùng shap khi import
+# được. Muốn bật đường shap: pip install shap
+
+# --- Tùy chọn: truy xuất tri thức bằng embedding (src/knowledge/) ---
+# KHÔNG cài mặc định. Kho tri thức chỉ có 8 văn bản nên TF-IDF ở mức ký tự
+# đã đủ, chạy offline và tái lập 100%; sentence-transformers kéo theo ~90 MB
+# trọng số phải tải về mà lợi ích chưa được đo. Xem docs/knowledge-rag.md.
+# sentence-transformers>=2.7
 
 # --- Backend / Dashboard ---
 fastapi>=0.110

@@ -40,3 +40,6 @@ models/
 # IDE
 .vscode/
 .idea/
+
+# Log chạy dài (tiền xử lý / huấn luyện)
+logs/

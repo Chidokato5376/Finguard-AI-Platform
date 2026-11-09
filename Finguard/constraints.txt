@@ -1,0 +1,24 @@
+# Ghim đúng phiên bản của môi trường đã sinh ra các manifest trong reports/
+# (xem reproducibility.libraries trong reports/runs/*.json).
+#
+# pip hiện đại TỪ CHỐI cài chung requirements.txt với numpy<2 vì
+# qiskit-machine-learning 0.8.4 khai báo numpy>=2 (thực tế chạy đúng với
+# 1.26.4 — xem requirements.txt). Cài hai bước:
+#   grep -v qiskit-machine-learning requirements.txt > /tmp/req.txt
+#   grep -v qiskit-machine-learning constraints.txt  > /tmp/con.txt
+#   pip install -r /tmp/req.txt -c /tmp/con.txt
+#   pip install --no-deps qiskit-machine-learning==0.8.4
+# --no-deps khiến bước thứ hai KHÔNG thể kéo nâng qiskit lên 2.x.
+# Không có file này, pip kéo bản mới nhất (vd. torch 2.14) và các con số
+# HistGradientBoosting / DRRE không còn so sánh trực tiếp được với HI-Small.
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.4.2
+torch==2.2.2
+torch-geometric==2.5.3
+qiskit==1.4.6
+qiskit-machine-learning==0.8.4
+qiskit-algorithms==0.4.0
+# pytest 9.x lỗi INTERNALERROR (NodeId._str_cache) khi thu thập test
+pytest==8.3.5
+pytest-cov==5.0.0
