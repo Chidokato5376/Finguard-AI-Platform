@@ -38,6 +38,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CHECKPOINT_PATH = Path("models/drre_checkpoint.pt")
 
+#: Đặc trưng dùng cho checkpoint KHÔNG ghi `feature_columns` (mọi checkpoint
+#: trước 2026-10-17). Phải khớp src/drre/train.py::FEATURE_COLUMNS.
+DEFAULT_FEATURE_COLUMNS = ["amount_norm", "channel_encoded"]
+
 
 def compute_heuristic_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Tính risk score heuristic dựa trên độ lệch thống kê thật.
@@ -68,7 +72,7 @@ def compute_heuristic_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # Thống kê lịch sử TÍCH LŨY theo từng tài khoản (chỉ dùng dữ liệu quá
     # khứ tại thời điểm giao dịch — tránh leakage nhìn thấy tương lai)
-    grouped = df.groupby("account_id")["log_amount"]
+    grouped = df.groupby("account_id", observed=True)["log_amount"]
     rolling_mean = grouped.transform(lambda s: s.shift(1).expanding().mean())
     rolling_std = grouped.transform(lambda s: s.shift(1).expanding().std())
     rolling_count = grouped.transform(lambda s: s.shift(1).expanding().count())
@@ -134,6 +138,18 @@ def try_load_drre_checkpoint(checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PA
         model.load_state_dict(checkpoint["drre_state_dict"])
         model.fusion.set_disabled_branches(checkpoint.get("disabled_branches", []))
         model.use_graph = checkpoint.get("use_graph", True)
+        model.carry_state = bool(checkpoint.get("carry_state", False))
+        # Bộ đặc trưng KHÔNG còn cố định: mỗi nguồn dữ liệu có thể dùng một
+        # danh sách khác (xem src/drre/train.py::FEATURES_BY_SOURCE). Đọc từ
+        # checkpoint để chấm điểm bằng ĐÚNG đặc trưng đã huấn luyện; checkpoint
+        # cũ không có khóa này thì rơi về danh sách mặc định như trước.
+        model.feature_columns = list(checkpoint.get("feature_columns", DEFAULT_FEATURE_COLUMNS))
+        if len(model.feature_columns) != checkpoint["model_config"]["input_dim"]:
+            raise ValueError(
+                f"Checkpoint không nhất quán: input_dim={checkpoint['model_config']['input_dim']} "
+                f"nhưng feature_columns có {len(model.feature_columns)} cột "
+                f"({model.feature_columns}). Huấn luyện lại hoặc sửa checkpoint."
+            )
         model.eval()
 
         risk_engine = RiskScoringEngine(embedding_dim=checkpoint["model_config"]["embedding_dim"])
@@ -163,7 +179,7 @@ def _score_with_drre(df: pd.DataFrame, drre, risk_engine) -> pd.DataFrame:
 
     from src.dashboard.graph_utils import build_account_graph
 
-    feature_cols = ["amount_norm", "channel_encoded"]
+    feature_cols = list(getattr(drre, "feature_columns", DEFAULT_FEATURE_COLUMNS))
     missing = set(feature_cols) - set(df.columns)
     if missing:
         raise ValueError(
