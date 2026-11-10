@@ -19,6 +19,7 @@ Ví dụ:
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import logging
 import sys
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -64,11 +66,14 @@ DEFAULT_ALERT_BUDGETS = (500, 1000, 2000)
 #: bagging — mỗi cây thấy một mẫu bootstrap khác nhau.
 RF_MAX_SAMPLES = 0.25
 
-#: Số cây Random Forest dựng song song. KHÔNG để -1: mỗi tiến trình con cấp
+#: Số cây Random Forest và Isolation Forest dựng song song. KHÔNG để -1: mỗi tiến trình con cấp
 #: phát mảng trọng số dài bằng cả tập train, nên trên HI-Medium (19,6 triệu
 #: dòng) 16 luồng cộng dồn làm MemoryError dù máy 32 GB. Kết quả không phụ
 #: thuộc tham số này — random_state cố định cho ra đúng cùng các cây.
 RF_N_JOBS = 4
+
+#: Cột của parquet mà phần baseline không bao giờ đọc.
+BASELINE_UNUSED_COLUMNS = {"is_synthetic_field", "device_id", "ip_country", "source"}
 
 #: Số mẫu mỗi cây của Isolation Forest. 256 là giá trị gốc trong bài báo
 #: Liu et al. 2008: thuật toán cô lập điểm bất thường nhanh hơn khi mẫu NHỎ,
@@ -210,6 +215,11 @@ def _baseline_scores(
     # mất cân bằng đáng giá bao nhiêu" trên cùng một mô hình, cùng một bộ đặc
     # trưng, chỉ khác đúng một tham số.
     x_tr, x_ev = feature_sets[rich_tag]
+    # Hai bộ còn lại không dùng nữa; HI-Medium mỗi bộ vài GB, giữ lại là Random
+    # Forest bên dưới hết RAM (đo 09/11 trên máy còn ~17 GB trống).
+    feature_sets.clear()
+    clf = None
+    gc.collect()
     gbdt_balanced = HistGradientBoostingClassifier(
         max_iter=200, class_weight="balanced", random_state=seed)
     gbdt_balanced.fit(x_tr[fit_rows], y_train[fit_rows])
@@ -248,7 +258,7 @@ def _baseline_scores(
     # cùng quy ước "điểm cao = đáng ngờ" với mọi phương pháp khác.
     iforest = IsolationForest(
         n_estimators=100, max_samples=IFOREST_MAX_SAMPLES,
-        random_state=seed, n_jobs=-1)
+        random_state=seed, n_jobs=RF_N_JOBS)
     iforest.fit(x_tr[fit_rows])
     scores["isolation_forest"] = -iforest.score_samples(x_ev)
 
@@ -500,9 +510,11 @@ def _score_stateful(
     model, risk_engine = loaded
     paths = [Path(args.processed_dir) / f"{args.source}_{name}.parquet"
              for name in WARM_UP_SPLITS[args.split]]
+    from src.data.scenarios.store import read_split
+
     columns = stream_columns(model, time_col)
     stream = time_sorted(pd.concat(
-        [pd.read_parquet(path, columns=columns) for path in paths], ignore_index=True))
+        [read_split(path, columns) for path in paths], ignore_index=True))
 
     memory = model.behavior_memory
     store = BehaviorStateStore(
@@ -621,6 +633,22 @@ def _markdown_table(rows: dict[str, dict[str, float]], budgets: tuple[int, ...])
     return "\n".join(lines)
 
 
+def _checkpoint_features(*checkpoints: str | None) -> list[str]:
+    """Đặc trưng mà các checkpoint DRRE cần; checkpoint thiếu/không đọc được thì bỏ qua."""
+    import torch
+
+    columns: list[str] = []
+    for path in checkpoints:
+        if not path or not Path(path).exists():
+            continue
+        try:
+            saved = torch.load(path, map_location="cpu", weights_only=True)
+        except Exception:  # noqa: BLE001 — không phải checkpoint DRRE: không cần cột nào thêm
+            continue
+        columns += [c for c in saved.get("feature_columns", []) if c not in columns]
+    return columns
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Đánh giá checkpoint DRRE trên tập test")
     parser.add_argument(
@@ -704,6 +732,12 @@ def main(argv: list[str] | None = None) -> int:
     if not path.exists():
         parser.error(f"Không tìm thấy {path} — chạy src.data.preprocessing trước.")
     df = pd.read_parquet(path)
+    # Cột kịch bản mà checkpoint cần (DRRE huấn luyện với --scenarios) phải gắn
+    # TRƯỚC khi sắp xếp: file kịch bản thẳng hàng theo thứ tự dòng gốc.
+    from src.data.scenarios.store import attach_scenarios, module_of
+
+    df = attach_scenarios(df, path, [
+        c for c in _checkpoint_features(args.checkpoint, args.compare_checkpoint) if module_of(c)])
     # Chuẩn hóa thứ tự theo thời gian NGAY khi nạp. Bắt buộc: chấm theo lô
     # sẽ tự sắp lại theo thời gian, nên nếu thứ tự ở đây khác thì điểm và
     # nhãn lệch nhau mà không có lỗi nào được báo.
@@ -785,7 +819,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             logger.info("Đang chạy baseline cổ điển (học từ %s, chấm trên %s)...",
                         train_path.name, path.name)
-            df_train = pd.read_parquet(train_path)
+            # Bỏ cột object baseline không đọc: `is_synthetic_field` là một mảng
+            # Python trên MỖI dòng, tốn vài GB với 22 triệu dòng.
+            df_train = pd.read_parquet(train_path, columns=[
+                c for c in pq.read_schema(train_path).names if c not in BASELINE_UNUSED_COLUMNS])
             train_mask = None
             if args.universe == "clean" and "eval_universe" in df_train.columns:
                 train_mask = df_train["eval_universe"].fillna(True).to_numpy(dtype=bool)

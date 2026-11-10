@@ -30,6 +30,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier  # noqa: E402
 from sklearn.metrics import average_precision_score as ap  # noqa: E402
 
 from src.dashboard.scoring_service import try_load_drre_checkpoint  # noqa: E402
+from src.data.scenarios.store import read_split  # noqa: E402
 from src.drre.train import BehaviorStateStore  # noqa: E402
 from src.evaluation.stateful_scoring import (  # noqa: E402
     DEFAULT_WINDOW, fingerprint, required_capacity, score_split, stream_columns, time_sorted,
@@ -87,20 +88,21 @@ def main() -> int:
 
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
 
-    started = time.time()
+    started = time.monotonic()
     loaded = try_load_drre_checkpoint(args.checkpoint)
     if loaded is None:
         raise SystemExit(f"Không nạp được {args.checkpoint}")
     model, engine = loaded
     features = list(model.feature_columns)
-    dim = model.fusion.phi_1.out_features
+    dim = model.embedding_dim
 
     processed = Path(args.processed_dir)
     train_path = processed / f"{args.source}_train.parquet"
     val_path = processed / f"{args.source}_val.parquet"
     columns = stream_columns(model) + ["label", "eval_universe"]
-    train = time_sorted(pd.read_parquet(train_path, columns=columns))
-    val = time_sorted(pd.read_parquet(val_path, columns=columns))
+    # read_split gắn cột kịch bản (nếu checkpoint dùng) TRƯỚC khi sắp xếp theo thời gian.
+    train = time_sorted(read_split(train_path, columns))
+    val = time_sorted(read_split(val_path, columns))
     logger.info("train %d dòng, val %d dòng", len(train), len(val))
 
     folder = Path(args.checkpoint).with_suffix(".contrib")

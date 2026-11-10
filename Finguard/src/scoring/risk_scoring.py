@@ -21,11 +21,19 @@ class RiskTier(str, Enum):
 
 
 class RiskScoringEngine(nn.Module):
-    """Ánh xạ tuyến tính + sigmoid từ Risk Embedding sang điểm 0–100."""
+    """Ánh xạ Risk Embedding sang điểm 0–100.
 
-    def __init__(self, embedding_dim: int) -> None:
+    `hidden=None`: tuyến tính + sigmoid (DRRE v1, giữ nguyên tên tham số `linear`
+    để checkpoint cũ nạp được). `hidden=k`: MLP 2 lớp (DRRE v2, Giai đoạn 2A).
+    """
+
+    def __init__(self, embedding_dim: int, hidden: int | None = None) -> None:
         super().__init__()
-        self.linear = nn.Linear(embedding_dim, 1)
+        if hidden:
+            self.mlp = nn.Sequential(
+                nn.Linear(embedding_dim, hidden), nn.ReLU(), nn.Linear(hidden, 1))
+        else:
+            self.linear = nn.Linear(embedding_dim, 1)
 
     def forward(self, e_t: torch.Tensor) -> torch.Tensor:
         """
@@ -42,7 +50,13 @@ class RiskScoringEngine(nn.Module):
         khi huấn luyện (src/drre/train.py), tránh phải tính ngược
         sigmoid^{-1}(forward(e_t)/100) kém ổn định số học.
         """
-        return self.linear(e_t).squeeze(-1)
+        head = self.mlp if hasattr(self, "mlp") else self.linear
+        return head(e_t).squeeze(-1)
+
+
+def build_risk_engine(model_config: dict) -> RiskScoringEngine:
+    """Đầu chấm điểm khớp với `model_config` của checkpoint (v1: tuyến tính)."""
+    return RiskScoringEngine(model_config["embedding_dim"], hidden=model_config.get("risk_hidden"))
 
 
 def classify_tier(

@@ -65,8 +65,8 @@ from torch import nn
 
 from src.dashboard.graph_utils import build_account_graph
 from src.drre.losses import DRRECompositeLoss, EMATargetEncoder, prediction_loss
-from src.drre.model import DRRE
-from src.scoring.risk_scoring import RiskScoringEngine
+from src.drre.model import DRRE, build_drre
+from src.scoring.risk_scoring import RiskScoringEngine, build_risk_engine
 from src.tracking import DEFAULT_RUNS_DIR, RunManifest, dataframe_summary, file_fingerprint
 
 logger = logging.getLogger(__name__)
@@ -261,7 +261,15 @@ SELECTION_MODES = ("smoothed", "argmax")
 
 #: Phiên bản định dạng tệp trạng thái chạy tiếp (xem resume_state_path).
 #: Tăng số này khi đổi cấu trúc tệp — tệp cũ sẽ bị từ chối thay vì nạp sai.
-RESUME_FORMAT = 1
+#: 2 từ Giai đoạn 2A (DRRE v2 có thêm buffer chuẩn hóa). Định dạng 1 vẫn đọc được cho v1.
+RESUME_FORMAT = 2
+
+#: Kiến trúc DRRE: v1 gốc, v2 = tầng chấm điểm đã sửa (src/drre/model_v2.py).
+ARCHES = ("v1", "v2")
+#: Số nơ-ron lớp ẩn của đầu chấm điểm MLP (v2).
+RISK_HIDDEN = 64
+#: Số dòng train tối đa dùng để học thống kê chuẩn hóa (v2).
+NORMALIZER_SAMPLE = 2_000_000
 
 #: Ghi log tiến độ sau mỗi bấy nhiêu cửa sổ huấn luyện. Một epoch HI-Medium
 #: có ~680 cửa sổ trong vài giờ — không có dòng này thì không biết còn bao lâu.
@@ -393,7 +401,7 @@ def run_encoder_over_window_sequential(
     pred_out: list[torch.Tensor | None] = [None] * n
 
     # Tính embedding đồ thị MỘT lần cho cả cửa sổ (xem DRRE.forward).
-    g_all = model.graph_encoder(node_features, edge_index)
+    g_all = model.encode_graph(node_features, edge_index)
 
     for account_id, group in window.groupby("account_id", sort=False, observed=True):
         idxs = group.index.tolist()  # đã sort theo group nhưng group giữ thứ tự gốc (đã sort theo time trước đó)
@@ -476,7 +484,7 @@ def run_encoder_over_window(
     codes_t = torch.as_tensor(codes.astype(np.int64), device=device)
 
     # Graph Encoder chỉ phụ thuộc đồ thị của cửa sổ -> chạy một lần.
-    g_all = model.graph_encoder(node_features, edge_index)
+    g_all = model.encode_graph(node_features, edge_index)
     h_state, m_state = model.behavior_memory.init_state(len(uniques), device=device)
     if state_store is not None:
         h_state, m_state = state_store.load(uniques, h_state, m_state)
@@ -624,7 +632,7 @@ def train_on_window(
         # Không có tài khoản nào lặp lại trong cửa sổ -> không tính được
         # L_pred cho bước này. Trả về loss=0 (không đóng góp gradient),
         # KHÔNG che giấu — được log ở train() để người dùng biết tăng batch_size.
-        e_pred_sel = torch.zeros(1, model.fusion.phi_1.out_features, device=device)
+        e_pred_sel = torch.zeros(1, model.embedding_dim, device=device)
         e_target_sel = e_pred_sel.detach().clone()
 
     anchors, positives, neg_lists = build_contrastive_triplets(window, num_negatives, rng)
@@ -885,6 +893,8 @@ def train(
     lambda_bce: float | None = None,
     resume: bool = False,
     stop_after: int | None = None,
+    arch: str = "v1",
+    scenarios: Sequence[str] | None = None,
 ) -> None:
     """Huấn luyện DRRE.
 
@@ -899,7 +909,14 @@ def train(
             khi không bật cờ này, nên một lần chạy bị ngắt luôn chạy tiếp được.
         stop_after: dừng sau bấy nhiêu epoch trong phiên này (None = chạy hết).
             Manifest chỉ được ghi khi đã chạy đủ `epochs`.
+        arch: "v1" (DRRE gốc) hoặc "v2" (tầng chấm điểm đã sửa, src/drre/model_v2.py).
+        scenarios: mô-đun đặc trưng kịch bản (src/data/scenarios) được gắn thêm, vd.
+            ["mule_chain", "cross_bank_fx", "cycle"]. Khi có, bộ đặc trưng gốc bỏ
+            DROPPED_BASE_FEATURES — đúng bộ đã chốt ở R1.
     """
+    if arch not in ARCHES:
+        raise ValueError(f"arch phải thuộc {ARCHES}, nhận {arch!r}")
+    scenarios = list(scenarios or [])
     if selection not in SELECTION_MODES:
         raise ValueError(f"selection phải thuộc {SELECTION_MODES}, nhận {selection!r}")
     if stop_after is not None and stop_after < 1:
@@ -912,7 +929,8 @@ def train(
                 f"Đã có trạng thái chạy dở {resume_path}. Thêm --resume để chạy tiếp, hoặc "
                 "xóa tệp đó nếu thật sự muốn huấn luyện lại từ đầu (sẽ mất các epoch đã chạy).")
         resume_state = torch.load(resume_path, map_location="cpu")
-        if resume_state.get("format") != RESUME_FORMAT:
+        # Định dạng 1 (trước Giai đoạn 2A) chỉ có DRRE v1 và vẫn đọc được bình thường.
+        if resume_state.get("format") not in (RESUME_FORMAT, *(() if arch == "v2" else (1,))):
             raise ValueError(
                 f"{resume_path} có định dạng {resume_state.get('format')!r}, mã hiện tại cần "
                 f"{RESUME_FORMAT} — không nạp được.")
@@ -950,6 +968,17 @@ def train(
     df_val = pd.read_parquet(val_path) if val_path.exists() else None
 
     feature_cols = features_for(source, feature_columns, available=df_train.columns)
+    if scenarios:
+        from src.data.scenarios import DROPPED_BASE_FEATURES, features_of
+        from src.data.scenarios.store import attach_scenarios
+
+        if not feature_columns:
+            feature_cols = [c for c in feature_cols if c not in DROPPED_BASE_FEATURES]
+        feature_cols += [c for c in features_of(scenarios) if c not in feature_cols]
+        # Gắn ngay sau khi đọc, TRƯỚC mọi phép sắp xếp: file kịch bản thẳng hàng theo dòng gốc.
+        df_train = attach_scenarios(df_train, train_path, feature_cols)
+        if df_val is not None:
+            df_val = attach_scenarios(df_val, val_path, feature_cols)
     missing = set(feature_cols) - set(df_train.columns)
     if missing:
         raise ValueError(f"Dữ liệu thiếu cột đặc trưng: {missing}. Chạy lại preprocessing.py.")
@@ -972,12 +1001,21 @@ def train(
         )
 
     input_dim = len(feature_cols)
-    model = DRRE(
+    model_config = dict(
         input_dim=input_dim, hidden_dim=hidden_dim, num_slots=num_slots,
         graph_hidden_dim=graph_hidden_dim, graph_num_layers=graph_num_layers,
         embedding_dim=embedding_dim,
-    ).to(device)
-    risk_engine = RiskScoringEngine(embedding_dim=embedding_dim).to(device)
+    )
+    if arch == "v2":
+        model_config.update(arch="v2", feature_columns=list(feature_cols), risk_hidden=RISK_HIDDEN)
+    model = build_drre(model_config).to(device)
+    risk_engine = build_risk_engine(model_config).to(device)
+    if arch == "v2":
+        # Thống kê chuẩn hóa chỉ học trên TRAIN, và phải có trước khi tạo mạng EMA
+        # (bản sao sâu) để hai mạng dùng cùng thống kê. Lấy mẫu để không nhân đôi RAM.
+        rows = np.random.default_rng(seed).choice(
+            len(df_train), size=min(len(df_train), NORMALIZER_SAMPLE), replace=False)
+        model.fit_normalizer(df_train[feature_cols].to_numpy(dtype=np.float32)[np.sort(rows)])
 
     # Tắt nhánh PHẢI làm trước khi tạo target network (EMA sao chép cả mặt nạ).
     disabled = set(disabled_branches or [])
@@ -1018,12 +1056,6 @@ def train(
         list(model.parameters()) + list(risk_engine.parameters()), lr=lr
     )
 
-    model_config = dict(
-        input_dim=input_dim, hidden_dim=hidden_dim, num_slots=num_slots,
-        graph_hidden_dim=graph_hidden_dim, graph_num_layers=graph_num_layers,
-        embedding_dim=embedding_dim,
-    )
-
     # Manifest thí nghiệm: gắn commit, phiên bản dữ liệu, seed và siêu tham số
     # vào lần chạy này (xem src/tracking.py). Ghi ra reports/runs/ và nhúng
     # phần gọn vào checkpoint, nhờ đó mỗi con số đều truy được về nguồn.
@@ -1045,6 +1077,10 @@ def train(
             "carry_state": carry_state,
             "state_cache": state_cache if carry_state else None,
             "shuffle_windows": not carry_state,
+            # Chỉ ghi khi khác mặc định: trạng thái chạy dở của các lần chạy v1 cũ
+            # không có hai khóa này và vẫn phải chạy tiếp được.
+            **({"arch": arch} if arch != "v1" else {}),
+            **({"scenarios": scenarios} if scenarios else {}),
         },
         data={
             "train_file": {**file_fingerprint(train_path), **dataframe_summary(df_train)},
@@ -1062,6 +1098,7 @@ def train(
         # đã huấn luyện — xem scoring_service.try_load_drre_checkpoint.
         "feature_columns": list(feature_cols),
         "carry_state": carry_state,
+        "scenarios": scenarios,
         "run": manifest.checkpoint_fields(),
     }
 
@@ -1381,6 +1418,11 @@ def main() -> None:
     parser.add_argument("--no-graph", action="store_true",
                          help="Không dựng đồ thị, tắt nhánh đồ thị — bắt buộc với nguồn không có "
                               "người nhận (ieee_cis)")
+    parser.add_argument("--arch", default="v1", choices=list(ARCHES),
+                        help="v1 = DRRE gốc; v2 = tầng chấm điểm đã sửa (Giai đoạn 2A).")
+    parser.add_argument("--scenarios", default="", metavar="MO_DUN1,MO_DUN2",
+                        help="Gắn đặc trưng kịch bản, vd. mule_chain,cross_bank_fx,cycle (bộ đã "
+                             "chốt ở R1). Cần chạy scripts/build_scenarios.py trước.")
     parser.add_argument("--disable-branch", action="append", default=[],
                          choices=["transaction", "behavior", "graph"],
                          help="Tắt một nhánh để làm ablation, vd. --disable-branch behavior")
@@ -1403,6 +1445,7 @@ def main() -> None:
         ),
         carry_state=args.carry_state, state_cache=args.state_cache,
         lambda_bce=args.lambda_bce, resume=args.resume, stop_after=args.stop_after,
+        arch=args.arch, scenarios=[s.strip() for s in args.scenarios.split(",") if s.strip()],
     )
 
 

@@ -130,11 +130,11 @@ def try_load_drre_checkpoint(checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PA
     try:
         import torch
 
-        from src.drre.model import DRRE
-        from src.scoring.risk_scoring import RiskScoringEngine
+        from src.drre.model import build_drre
+        from src.scoring.risk_scoring import build_risk_engine
 
         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-        model = DRRE(**checkpoint["model_config"])
+        model = build_drre(checkpoint["model_config"])
         model.load_state_dict(checkpoint["drre_state_dict"])
         model.fusion.set_disabled_branches(checkpoint.get("disabled_branches", []))
         model.use_graph = checkpoint.get("use_graph", True)
@@ -152,7 +152,7 @@ def try_load_drre_checkpoint(checkpoint_path: str | Path = DEFAULT_CHECKPOINT_PA
             )
         model.eval()
 
-        risk_engine = RiskScoringEngine(embedding_dim=checkpoint["model_config"]["embedding_dim"])
+        risk_engine = build_risk_engine(checkpoint["model_config"])
         risk_engine.load_state_dict(checkpoint["risk_engine_state_dict"])
         risk_engine.eval()
 
