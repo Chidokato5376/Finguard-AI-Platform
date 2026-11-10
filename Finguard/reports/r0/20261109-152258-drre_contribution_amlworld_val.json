@@ -1,0 +1,154 @@
+{
+  "kind": "drre_contribution_amlworld_val",
+  "run_id": "20261109-152258-drre_contribution_amlworld_val",
+  "started_utc": "2026-11-09T15:22:56+00:00",
+  "finished_utc": "2026-11-09T15:22:58+00:00",
+  "duration_seconds": -1793262407.5,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_hi_medium.pt",
+    "window": 32768,
+    "pca_dim": 16,
+    "bootstrap": 150,
+    "stateful": true
+  },
+  "data": {
+    "train_file": {
+      "path": "data\\processed_hi_medium\\amlworld_train.parquet",
+      "exists": true,
+      "bytes": 2696129352,
+      "modified_utc": "2026-10-31T08:36:27+00:00",
+      "sha256": "9a29a11e2732cde779d077f96a777e20",
+      "hash_scope": "partial_head_tail"
+    },
+    "eval_file": {
+      "path": "data\\processed_hi_medium\\amlworld_val.parquet",
+      "exists": true,
+      "bytes": 620360698,
+      "modified_utc": "2026-10-31T08:36:40+00:00",
+      "sha256": "8e825bb5a9b2622433f704d68b6209fe",
+      "hash_scope": "partial_head_tail",
+      "n_rows": 4783687,
+      "columns": [
+        "amount_norm",
+        "channel_encoded",
+        "log_n_prior",
+        "log_gap",
+        "z_amount",
+        "log_amount_ratio",
+        "new_counterparty",
+        "log_n_distinct_cp",
+        "log_n_prior_as_cp",
+        "log_n_distinct_senders",
+        "is_round_amount",
+        "hour_sin",
+        "hour_cos",
+        "dow",
+        "log_amt_out_prior",
+        "log_amt_in_prior",
+        "log_n_in_prior",
+        "passthrough_ratio",
+        "flow_imbalance",
+        "log_cp_amt_in_prior",
+        "account_id",
+        "counterparty_id",
+        "timestamp",
+        "label",
+        "eval_universe"
+      ],
+      "n_positive": 5489,
+      "positive_rate": 0.0011474412937134055,
+      "time_col": "timestamp",
+      "time_min": "2022-09-12 14:19:00",
+      "time_max": "2022-09-15 01:24:00",
+      "n_accounts": 533209
+    }
+  },
+  "results": {
+    "base_rate": 0.00119234198861964,
+    "drre_alone_auprc": 0.3866460926106748,
+    "pca_explained_variance": 0.9767527331088443,
+    "gbdt": {
+      "auprc": 0.5178689142220048,
+      "n_iter": 121,
+      "caught@500": 489,
+      "caught@1000": 972,
+      "caught@2000": 1871
+    },
+    "gbdt+diem_drre": {
+      "auprc": 0.5516400184590007,
+      "n_iter": 93,
+      "caught@500": 494,
+      "caught@1000": 971,
+      "caught@2000": 1882,
+      "minus_gbdt": 0.03377110423699592,
+      "ci95_minus_gbdt": {
+        "lo": 0.02683406211783531,
+        "hi": 0.04004497256520287,
+        "share_positive": 1.0
+      }
+    },
+    "gbdt+emb_drre": {
+      "auprc": 0.5460192750042051,
+      "n_iter": 103,
+      "caught@500": 499,
+      "caught@1000": 992,
+      "caught@2000": 1889,
+      "minus_gbdt": 0.028150360782200345,
+      "ci95_minus_gbdt": {
+        "lo": 0.020684084898606025,
+        "hi": 0.03499889140863065,
+        "share_positive": 1.0
+      }
+    },
+    "gbdt+emb_drre+diem": {
+      "auprc": 0.557246372368755,
+      "n_iter": 110,
+      "caught@500": 497,
+      "caught@1000": 975,
+      "caught@2000": 1876,
+      "minus_gbdt": 0.0393774581467502,
+      "ci95_minus_gbdt": {
+        "lo": 0.03255235811214835,
+        "hi": 0.046817907913326136,
+        "share_positive": 1.0
+      }
+    },
+    "group_permutation": {
+      "base_auprc_on_sample": 0.7759945903884169,
+      "drop": {
+        "giao_dich": 0.5164671287629017,
+        "thoi_quen": 0.1606543099708142,
+        "thoi_diem": 0.001396310586192569,
+        "doi_tac_mang_luoi": 0.028330139661478165,
+        "DRRE": 0.7324691549905561
+      }
+    }
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "1e62c7162ad8d70ec088889e0d237acbc6732786",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/drre_contribution.py",
+      "--keep-awake",
+      "--out-dir",
+      "reports/r0",
+      "--checkpoint",
+      "models/drre_hi_medium.pt",
+      "--processed-dir",
+      "data/processed_hi_medium"
+    ]
+  },
+  "notes": []
+}

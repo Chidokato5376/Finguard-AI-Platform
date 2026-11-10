@@ -1,0 +1,1761 @@
+{
+  "kind": "evaluate_amlworld_val",
+  "run_id": "20261109-142306-evaluate_amlworld_val",
+  "started_utc": "2026-11-09T14:23:04+00:00",
+  "finished_utc": "2026-11-09T14:23:06+00:00",
+  "duration_seconds": 1208.0,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_aml_probe.pt",
+    "compare_checkpoint": null,
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": true,
+    "compare_baseline": "gbdt_can_bang",
+    "by_period": 0,
+    "by_typology": true,
+    "universe": "clean",
+    "stateful": "auto",
+    "warm_window": 32768,
+    "thresholds_from": null,
+    "scored_rows": 733086,
+    "total_rows": 761585
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed_aml\\amlworld_val.parquet",
+      "exists": true,
+      "bytes": 42599991,
+      "modified_utc": "2026-10-19T16:40:45+00:00",
+      "sha256": "e5311cf0d91c3661daf121573e491399",
+      "hash_scope": "full",
+      "n_rows": 761585,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "timestamp",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "currency",
+        "is_fx",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "laundering_pattern",
+        "amount_norm",
+        "log_n_prior",
+        "log_amount_ratio",
+        "z_amount",
+        "log_gap",
+        "new_counterparty",
+        "log_n_distinct_cp",
+        "log_n_prior_as_cp",
+        "log_n_distinct_senders",
+        "is_round_amount",
+        "hour_sin",
+        "hour_cos",
+        "dow",
+        "eval_universe",
+        "channel_encoded"
+      ],
+      "n_positive": 760,
+      "positive_rate": 0.0009979188140522726,
+      "time_col": "timestamp",
+      "time_min": "2022-09-07 14:52:00",
+      "time_max": "2022-09-09 03:14:00",
+      "n_accounts": 137189
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.0010367132914828547,
+    "metrics": {
+      "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+        "auprc": 0.2399863380606857,
+        "roc_auc": 0.974257275520235,
+        "ece": 0.1430351934592294,
+        "recall@500": 0.30394736842105263,
+        "fpr@500": 0.538,
+        "caught@500": 231.0,
+        "recall@1000": 0.3960526315789474,
+        "fpr@1000": 0.699,
+        "caught@1000": 301.0,
+        "recall@2000": 0.4697368421052632,
+        "fpr@2000": 0.8215,
+        "caught@2000": 357.0
+      },
+      "ngau_nhien": {
+        "auprc": 0.001071198911162339,
+        "roc_auc": 0.5120129218408196,
+        "ece": 0.498734113139274,
+        "recall@500": 0.0,
+        "fpr@500": 1.0,
+        "caught@500": 0.0,
+        "recall@1000": 0.0013157894736842105,
+        "fpr@1000": 0.999,
+        "caught@1000": 1.0,
+        "recall@2000": 0.003947368421052632,
+        "fpr@2000": 0.9985,
+        "caught@2000": 3.0
+      },
+      "chi_so_tien": {
+        "auprc": 0.0016326487069071823,
+        "roc_auc": 0.6803491941394522,
+        "ece": 0.8910995760887944,
+        "recall@500": 0.0013157894736842105,
+        "fpr@500": 0.998,
+        "caught@500": 1.0,
+        "recall@1000": 0.002631578947368421,
+        "fpr@1000": 0.998,
+        "caught@1000": 2.0,
+        "recall@2000": 0.003947368421052632,
+        "fpr@2000": 0.9985,
+        "caught@2000": 3.0
+      },
+      "logistic_cung_dau_vao": {
+        "auprc": 0.009431578009067298,
+        "roc_auc": 0.8906300124175355,
+        "ece": 0.25379629652480623,
+        "recall@500": 0.003947368421052632,
+        "fpr@500": 0.994,
+        "caught@500": 3.0,
+        "recall@1000": 0.010526315789473684,
+        "fpr@1000": 0.992,
+        "caught@1000": 8.0,
+        "recall@2000": 0.017105263157894738,
+        "fpr@2000": 0.9935,
+        "caught@2000": 13.0
+      },
+      "gbdt_cung_dau_vao": {
+        "auprc": 0.020525088626685693,
+        "roc_auc": 0.8981716682619201,
+        "ece": 0.00014551069702674053,
+        "recall@500": 0.019736842105263157,
+        "fpr@500": 0.97,
+        "caught@500": 15.0,
+        "recall@1000": 0.05526315789473684,
+        "fpr@1000": 0.958,
+        "caught@1000": 42.0,
+        "recall@2000": 0.11710526315789474,
+        "fpr@2000": 0.9555,
+        "caught@2000": 89.0
+      },
+      "gbdt_them_lich_su": {
+        "auprc": 0.05115415482945744,
+        "roc_auc": 0.7496408891884072,
+        "ece": 0.0008839950824319207,
+        "recall@500": 0.10526315789473684,
+        "fpr@500": 0.84,
+        "caught@500": 80.0,
+        "recall@1000": 0.1618421052631579,
+        "fpr@1000": 0.877,
+        "caught@1000": 123.0,
+        "recall@2000": 0.2381578947368421,
+        "fpr@2000": 0.9095,
+        "caught@2000": 181.0
+      },
+      "gbdt_dac_trung_day_du": {
+        "auprc": 0.19391530929086248,
+        "roc_auc": 0.7964797799283236,
+        "ece": 0.0006257569131135498,
+        "recall@500": 0.2868421052631579,
+        "fpr@500": 0.564,
+        "caught@500": 218.0,
+        "recall@1000": 0.32894736842105265,
+        "fpr@1000": 0.75,
+        "caught@1000": 250.0,
+        "recall@2000": 0.3618421052631579,
+        "fpr@2000": 0.8625,
+        "caught@2000": 275.0
+      },
+      "gbdt_can_bang": {
+        "auprc": 0.41757393432197376,
+        "roc_auc": 0.9813039449140928,
+        "ece": 0.07538027283498216,
+        "recall@500": 0.36447368421052634,
+        "fpr@500": 0.446,
+        "caught@500": 277.0,
+        "recall@1000": 0.41710526315789476,
+        "fpr@1000": 0.683,
+        "caught@1000": 317.0,
+        "recall@2000": 0.5131578947368421,
+        "fpr@2000": 0.805,
+        "caught@2000": 390.0
+      },
+      "cay_quyet_dinh": {
+        "auprc": 0.37701007165903083,
+        "roc_auc": 0.9352645758712291,
+        "ece": 0.08635402297396633,
+        "recall@500": 0.38552631578947366,
+        "fpr@500": 0.414,
+        "caught@500": 293.0,
+        "recall@1000": 0.3868421052631579,
+        "fpr@1000": 0.706,
+        "caught@1000": 294.0,
+        "recall@2000": 0.3868421052631579,
+        "fpr@2000": 0.853,
+        "caught@2000": 294.0
+      },
+      "random_forest": {
+        "auprc": 0.3232962142127067,
+        "roc_auc": 0.9803685278141157,
+        "ece": 0.041290861185954895,
+        "recall@500": 0.29736842105263156,
+        "fpr@500": 0.548,
+        "caught@500": 226.0,
+        "recall@1000": 0.3815789473684211,
+        "fpr@1000": 0.71,
+        "caught@1000": 290.0,
+        "recall@2000": 0.4723684210526316,
+        "fpr@2000": 0.8205,
+        "caught@2000": 359.0
+      },
+      "isolation_forest": {
+        "auprc": 0.006486889648052566,
+        "roc_auc": 0.9124119289626119,
+        "ece": 0.46614451427161274,
+        "recall@500": 0.003947368421052632,
+        "fpr@500": 0.994,
+        "caught@500": 3.0,
+        "recall@1000": 0.006578947368421052,
+        "fpr@1000": 0.995,
+        "caught@1000": 5.0,
+        "recall@2000": 0.015789473684210527,
+        "fpr@2000": 0.994,
+        "caught@2000": 12.0
+      },
+      "bang_tra_kenh": {
+        "auprc": 0.0062873809496599604,
+        "roc_auc": 0.8699196787826876,
+        "ece": 0.00012069049166579977,
+        "recall@500": 0.003947368421052632,
+        "fpr@500": 0.994,
+        "caught@500": 3.0,
+        "recall@1000": 0.007894736842105263,
+        "fpr@1000": 0.994,
+        "caught@1000": 6.0,
+        "recall@2000": 0.018421052631578946,
+        "fpr@2000": 0.993,
+        "caught@2000": 14.0
+      }
+    },
+    "bootstrap": null,
+    "bootstrap_vs_baseline": {
+      "baseline": "gbdt_can_bang",
+      "diff_auprc": -0.17758759626128806,
+      "ci95": [
+        -0.20508055168312264,
+        -0.14983822333096783
+      ],
+      "n_boot": 300
+    },
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| ngau_nhien | 0.0011 | 0.512 | 0 | 1 | 3 |\n| chi_so_tien | 0.0016 | 0.680 | 1 | 2 | 3 |\n| bang_tra_kenh | 0.0063 | 0.870 | 3 | 6 | 14 |\n| isolation_forest | 0.0065 | 0.912 | 3 | 5 | 12 |\n| logistic_cung_dau_vao | 0.0094 | 0.891 | 3 | 8 | 13 |\n| gbdt_cung_dau_vao | 0.0205 | 0.898 | 15 | 42 | 89 |\n| gbdt_them_lich_su | 0.0512 | 0.750 | 80 | 123 | 181 |\n| gbdt_dac_trung_day_du | 0.1939 | 0.796 | 218 | 250 | 275 |\n| drre_aml_probe.pt (drre_trained_mang_trang_thai) | 0.2400 | 0.974 | 231 | 301 | 357 |\n| random_forest | 0.3233 | 0.980 | 226 | 290 | 359 |\n| cay_quyet_dinh | 0.3770 | 0.935 | 293 | 294 | 294 |\n| gbdt_can_bang | 0.4176 | 0.981 | 277 | 317 | 390 |",
+    "by_period": null,
+    "by_period_markdown_table": null,
+    "by_typology": [
+      {
+        "typology": "UNSPECIFIED",
+        "n_pos": 299,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 38,
+            "recall": 0.12709030100334448
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 1,
+            "recall": 0.0033444816053511705
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 3,
+            "recall": 0.010033444816053512
+          },
+          "gbdt_them_lich_su": {
+            "caught": 4,
+            "recall": 0.013377926421404682
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 45,
+            "recall": 0.1505016722408027
+          },
+          "gbdt_can_bang": {
+            "caught": 44,
+            "recall": 0.14715719063545152
+          },
+          "cay_quyet_dinh": {
+            "caught": 6,
+            "recall": 0.020066889632107024
+          },
+          "random_forest": {
+            "caught": 45,
+            "recall": 0.1505016722408027
+          },
+          "isolation_forest": {
+            "caught": 3,
+            "recall": 0.010033444816053512
+          },
+          "bang_tra_kenh": {
+            "caught": 3,
+            "recall": 0.010033444816053512
+          }
+        }
+      },
+      {
+        "typology": "STACK",
+        "n_pos": 105,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 66,
+            "recall": 0.6285714285714286
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 1,
+            "recall": 0.009523809523809525
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 3,
+            "recall": 0.02857142857142857
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 25,
+            "recall": 0.23809523809523808
+          },
+          "gbdt_them_lich_su": {
+            "caught": 40,
+            "recall": 0.38095238095238093
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 53,
+            "recall": 0.5047619047619047
+          },
+          "gbdt_can_bang": {
+            "caught": 72,
+            "recall": 0.6857142857142857
+          },
+          "cay_quyet_dinh": {
+            "caught": 57,
+            "recall": 0.5428571428571428
+          },
+          "random_forest": {
+            "caught": 70,
+            "recall": 0.6666666666666666
+          },
+          "isolation_forest": {
+            "caught": 2,
+            "recall": 0.01904761904761905
+          },
+          "bang_tra_kenh": {
+            "caught": 3,
+            "recall": 0.02857142857142857
+          }
+        }
+      },
+      {
+        "typology": "SCATTER-GATHER",
+        "n_pos": 93,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 73,
+            "recall": 0.7849462365591398
+          },
+          "ngau_nhien": {
+            "caught": 1,
+            "recall": 0.010752688172043012
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 2,
+            "recall": 0.021505376344086023
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 14,
+            "recall": 0.15053763440860216
+          },
+          "gbdt_them_lich_su": {
+            "caught": 39,
+            "recall": 0.41935483870967744
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 47,
+            "recall": 0.5053763440860215
+          },
+          "gbdt_can_bang": {
+            "caught": 72,
+            "recall": 0.7741935483870968
+          },
+          "cay_quyet_dinh": {
+            "caught": 60,
+            "recall": 0.6451612903225806
+          },
+          "random_forest": {
+            "caught": 70,
+            "recall": 0.7526881720430108
+          },
+          "isolation_forest": {
+            "caught": 1,
+            "recall": 0.010752688172043012
+          },
+          "bang_tra_kenh": {
+            "caught": 4,
+            "recall": 0.043010752688172046
+          }
+        }
+      },
+      {
+        "typology": "GATHER-SCATTER",
+        "n_pos": 70,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 50,
+            "recall": 0.7142857142857143
+          },
+          "ngau_nhien": {
+            "caught": 1,
+            "recall": 0.014285714285714285
+          },
+          "chi_so_tien": {
+            "caught": 1,
+            "recall": 0.014285714285714285
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 3,
+            "recall": 0.04285714285714286
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 12,
+            "recall": 0.17142857142857143
+          },
+          "gbdt_them_lich_su": {
+            "caught": 20,
+            "recall": 0.2857142857142857
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 37,
+            "recall": 0.5285714285714286
+          },
+          "gbdt_can_bang": {
+            "caught": 56,
+            "recall": 0.8
+          },
+          "cay_quyet_dinh": {
+            "caught": 45,
+            "recall": 0.6428571428571429
+          },
+          "random_forest": {
+            "caught": 51,
+            "recall": 0.7285714285714285
+          },
+          "isolation_forest": {
+            "caught": 1,
+            "recall": 0.014285714285714285
+          },
+          "bang_tra_kenh": {
+            "caught": 1,
+            "recall": 0.014285714285714285
+          }
+        }
+      },
+      {
+        "typology": "CYCLE",
+        "n_pos": 51,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 39,
+            "recall": 0.7647058823529411
+          },
+          "ngau_nhien": {
+            "caught": 1,
+            "recall": 0.0196078431372549
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 13,
+            "recall": 0.2549019607843137
+          },
+          "gbdt_them_lich_su": {
+            "caught": 24,
+            "recall": 0.47058823529411764
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 16,
+            "recall": 0.3137254901960784
+          },
+          "gbdt_can_bang": {
+            "caught": 36,
+            "recall": 0.7058823529411765
+          },
+          "cay_quyet_dinh": {
+            "caught": 33,
+            "recall": 0.6470588235294118
+          },
+          "random_forest": {
+            "caught": 31,
+            "recall": 0.6078431372549019
+          },
+          "isolation_forest": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "bang_tra_kenh": {
+            "caught": 1,
+            "recall": 0.0196078431372549
+          }
+        }
+      },
+      {
+        "typology": "FAN-IN",
+        "n_pos": 44,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 29,
+            "recall": 0.6590909090909091
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 7,
+            "recall": 0.1590909090909091
+          },
+          "gbdt_them_lich_su": {
+            "caught": 14,
+            "recall": 0.3181818181818182
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 22,
+            "recall": 0.5
+          },
+          "gbdt_can_bang": {
+            "caught": 35,
+            "recall": 0.7954545454545454
+          },
+          "cay_quyet_dinh": {
+            "caught": 28,
+            "recall": 0.6363636363636364
+          },
+          "random_forest": {
+            "caught": 26,
+            "recall": 0.5909090909090909
+          },
+          "isolation_forest": {
+            "caught": 1,
+            "recall": 0.022727272727272728
+          },
+          "bang_tra_kenh": {
+            "caught": 1,
+            "recall": 0.022727272727272728
+          }
+        }
+      },
+      {
+        "typology": "FAN-OUT",
+        "n_pos": 41,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 30,
+            "recall": 0.7317073170731707
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 3,
+            "recall": 0.07317073170731707
+          },
+          "gbdt_them_lich_su": {
+            "caught": 18,
+            "recall": 0.43902439024390244
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 28,
+            "recall": 0.6829268292682927
+          },
+          "gbdt_can_bang": {
+            "caught": 34,
+            "recall": 0.8292682926829268
+          },
+          "cay_quyet_dinh": {
+            "caught": 28,
+            "recall": 0.6829268292682927
+          },
+          "random_forest": {
+            "caught": 29,
+            "recall": 0.7073170731707317
+          },
+          "isolation_forest": {
+            "caught": 3,
+            "recall": 0.07317073170731707
+          },
+          "bang_tra_kenh": {
+            "caught": 1,
+            "recall": 0.024390243902439025
+          }
+        }
+      },
+      {
+        "typology": "BIPARTITE",
+        "n_pos": 35,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 21,
+            "recall": 0.6
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 1,
+            "recall": 0.02857142857142857
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 2,
+            "recall": 0.05714285714285714
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 8,
+            "recall": 0.22857142857142856
+          },
+          "gbdt_them_lich_su": {
+            "caught": 13,
+            "recall": 0.37142857142857144
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 18,
+            "recall": 0.5142857142857142
+          },
+          "gbdt_can_bang": {
+            "caught": 26,
+            "recall": 0.7428571428571429
+          },
+          "cay_quyet_dinh": {
+            "caught": 24,
+            "recall": 0.6857142857142857
+          },
+          "random_forest": {
+            "caught": 24,
+            "recall": 0.6857142857142857
+          },
+          "isolation_forest": {
+            "caught": 1,
+            "recall": 0.02857142857142857
+          },
+          "bang_tra_kenh": {
+            "caught": 0,
+            "recall": 0.0
+          }
+        }
+      },
+      {
+        "typology": "RANDOM",
+        "n_pos": 22,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "caught": 11,
+            "recall": 0.5
+          },
+          "ngau_nhien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "chi_so_tien": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "logistic_cung_dau_vao": {
+            "caught": 2,
+            "recall": 0.09090909090909091
+          },
+          "gbdt_cung_dau_vao": {
+            "caught": 4,
+            "recall": 0.18181818181818182
+          },
+          "gbdt_them_lich_su": {
+            "caught": 9,
+            "recall": 0.4090909090909091
+          },
+          "gbdt_dac_trung_day_du": {
+            "caught": 9,
+            "recall": 0.4090909090909091
+          },
+          "gbdt_can_bang": {
+            "caught": 15,
+            "recall": 0.6818181818181818
+          },
+          "cay_quyet_dinh": {
+            "caught": 13,
+            "recall": 0.5909090909090909
+          },
+          "random_forest": {
+            "caught": 13,
+            "recall": 0.5909090909090909
+          },
+          "isolation_forest": {
+            "caught": 0,
+            "recall": 0.0
+          },
+          "bang_tra_kenh": {
+            "caught": 0,
+            "recall": 0.0
+          }
+        }
+      }
+    ],
+    "by_typology_markdown_table": "| Kiểu hình (top 2,000) | Nhãn dương | gbdt_can_bang | cay_quyet_dinh | random_forest | drre_aml_probe.pt (drre_trained_mang_trang_thai) | gbdt_dac_trung_day_du | gbdt_them_lich_su | gbdt_cung_dau_vao | logistic_cung_dau_vao | isolation_forest | bang_tra_kenh | chi_so_tien | ngau_nhien |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| UNSPECIFIED | 299 | 44 (15%) | 6 (2%) | 45 (15%) | 38 (13%) | 45 (15%) | 4 (1%) | 3 (1%) | 1 (0%) | 3 (1%) | 3 (1%) | 0 (0%) | 0 (0%) |\n| STACK | 105 | 72 (69%) | 57 (54%) | 70 (67%) | 66 (63%) | 53 (50%) | 40 (38%) | 25 (24%) | 3 (3%) | 2 (2%) | 3 (3%) | 1 (1%) | 0 (0%) |\n| SCATTER-GATHER | 93 | 72 (77%) | 60 (65%) | 70 (75%) | 73 (78%) | 47 (51%) | 39 (42%) | 14 (15%) | 2 (2%) | 1 (1%) | 4 (4%) | 0 (0%) | 1 (1%) |\n| GATHER-SCATTER | 70 | 56 (80%) | 45 (64%) | 51 (73%) | 50 (71%) | 37 (53%) | 20 (29%) | 12 (17%) | 3 (4%) | 1 (1%) | 1 (1%) | 1 (1%) | 1 (1%) |\n| CYCLE | 51 | 36 (71%) | 33 (65%) | 31 (61%) | 39 (76%) | 16 (31%) | 24 (47%) | 13 (25%) | 0 (0%) | 0 (0%) | 1 (2%) | 0 (0%) | 1 (2%) |\n| FAN-IN | 44 | 35 (80%) | 28 (64%) | 26 (59%) | 29 (66%) | 22 (50%) | 14 (32%) | 7 (16%) | 0 (0%) | 1 (2%) | 1 (2%) | 0 (0%) | 0 (0%) |\n| FAN-OUT | 41 | 34 (83%) | 28 (68%) | 29 (71%) | 30 (73%) | 28 (68%) | 18 (44%) | 3 (7%) | 0 (0%) | 3 (7%) | 1 (2%) | 0 (0%) | 0 (0%) |\n| BIPARTITE | 35 | 26 (74%) | 24 (69%) | 24 (69%) | 21 (60%) | 18 (51%) | 13 (37%) | 8 (23%) | 2 (6%) | 1 (3%) | 0 (0%) | 1 (3%) | 0 (0%) |\n| RANDOM | 22 | 15 (68%) | 13 (59%) | 13 (59%) | 11 (50%) | 9 (41%) | 9 (41%) | 4 (18%) | 2 (9%) | 0 (0%) | 0 (0%) | 0 (0%) | 0 (0%) |",
+    "confusion": {
+      "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+        "top500": {
+          "tp": 231,
+          "fp": 269,
+          "fn": 529,
+          "tn": 732057,
+          "alerts": 500,
+          "precision": 0.462,
+          "recall": 0.30394736842105263,
+          "f1": 0.36666666666666664
+        },
+        "top1000": {
+          "tp": 301,
+          "fp": 699,
+          "fn": 459,
+          "tn": 731627,
+          "alerts": 1000,
+          "precision": 0.301,
+          "recall": 0.3960526315789474,
+          "f1": 0.34204545454545454
+        },
+        "top2000": {
+          "tp": 357,
+          "fp": 1643,
+          "fn": 403,
+          "tn": 730683,
+          "alerts": 2000,
+          "precision": 0.1785,
+          "recall": 0.4697368421052632,
+          "f1": 0.25869565217391305
+        },
+        "f1_tot_nhat": {
+          "tp": 265,
+          "fp": 367,
+          "fn": 495,
+          "tn": 731959,
+          "alerts": 632,
+          "precision": 0.41930379746835444,
+          "recall": 0.34868421052631576,
+          "f1": 0.3807471264367816,
+          "threshold": 99.73937225341797
+        }
+      },
+      "ngau_nhien": {
+        "top500": {
+          "tp": 0,
+          "fp": 500,
+          "fn": 760,
+          "tn": 731826,
+          "alerts": 500,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "top1000": {
+          "tp": 1,
+          "fp": 999,
+          "fn": 759,
+          "tn": 731327,
+          "alerts": 1000,
+          "precision": 0.001,
+          "recall": 0.0013157894736842105,
+          "f1": 0.0011363636363636365
+        },
+        "top2000": {
+          "tp": 3,
+          "fp": 1997,
+          "fn": 757,
+          "tn": 730329,
+          "alerts": 2000,
+          "precision": 0.0015,
+          "recall": 0.003947368421052632,
+          "f1": 0.002173913043478261
+        },
+        "f1_tot_nhat": {
+          "tp": 110,
+          "fp": 91985,
+          "fn": 650,
+          "tn": 640341,
+          "alerts": 92095,
+          "precision": 0.0011944188066670286,
+          "recall": 0.14473684210526316,
+          "f1": 0.002369285445048732,
+          "threshold": 0.874152076676678
+        }
+      },
+      "chi_so_tien": {
+        "top500": {
+          "tp": 1,
+          "fp": 499,
+          "fn": 759,
+          "tn": 731827,
+          "alerts": 500,
+          "precision": 0.002,
+          "recall": 0.0013157894736842105,
+          "f1": 0.0015873015873015875
+        },
+        "top1000": {
+          "tp": 2,
+          "fp": 998,
+          "fn": 758,
+          "tn": 731328,
+          "alerts": 1000,
+          "precision": 0.002,
+          "recall": 0.002631578947368421,
+          "f1": 0.002272727272727273
+        },
+        "top2000": {
+          "tp": 3,
+          "fp": 1997,
+          "fn": 757,
+          "tn": 730329,
+          "alerts": 2000,
+          "precision": 0.0015,
+          "recall": 0.003947368421052632,
+          "f1": 0.002173913043478261
+        },
+        "f1_tot_nhat": {
+          "tp": 48,
+          "fp": 23098,
+          "fn": 712,
+          "tn": 709228,
+          "alerts": 23146,
+          "precision": 0.002073792447939169,
+          "recall": 0.06315789473684211,
+          "f1": 0.004015728269053795,
+          "threshold": 977541.16
+        }
+      },
+      "logistic_cung_dau_vao": {
+        "top500": {
+          "tp": 3,
+          "fp": 497,
+          "fn": 757,
+          "tn": 731829,
+          "alerts": 500,
+          "precision": 0.006,
+          "recall": 0.003947368421052632,
+          "f1": 0.004761904761904762
+        },
+        "top1000": {
+          "tp": 8,
+          "fp": 992,
+          "fn": 752,
+          "tn": 731334,
+          "alerts": 1000,
+          "precision": 0.008,
+          "recall": 0.010526315789473684,
+          "f1": 0.009090909090909092
+        },
+        "top2000": {
+          "tp": 13,
+          "fp": 1987,
+          "fn": 747,
+          "tn": 730339,
+          "alerts": 2000,
+          "precision": 0.0065,
+          "recall": 0.017105263157894738,
+          "f1": 0.009420289855072464
+        },
+        "f1_tot_nhat": {
+          "tp": 393,
+          "fp": 28810,
+          "fn": 367,
+          "tn": 703516,
+          "alerts": 29203,
+          "precision": 0.013457521487518406,
+          "recall": 0.5171052631578947,
+          "f1": 0.02623235323565731,
+          "threshold": 0.8357391404459834
+        }
+      },
+      "gbdt_cung_dau_vao": {
+        "top500": {
+          "tp": 15,
+          "fp": 485,
+          "fn": 745,
+          "tn": 731841,
+          "alerts": 500,
+          "precision": 0.03,
+          "recall": 0.019736842105263157,
+          "f1": 0.023809523809523808
+        },
+        "top1000": {
+          "tp": 42,
+          "fp": 958,
+          "fn": 718,
+          "tn": 731368,
+          "alerts": 1000,
+          "precision": 0.042,
+          "recall": 0.05526315789473684,
+          "f1": 0.047727272727272736
+        },
+        "top2000": {
+          "tp": 89,
+          "fp": 1911,
+          "fn": 671,
+          "tn": 730415,
+          "alerts": 2000,
+          "precision": 0.0445,
+          "recall": 0.11710526315789474,
+          "f1": 0.0644927536231884
+        },
+        "f1_tot_nhat": {
+          "tp": 109,
+          "fp": 2365,
+          "fn": 651,
+          "tn": 729961,
+          "alerts": 2474,
+          "precision": 0.044058205335489084,
+          "recall": 0.14342105263157895,
+          "f1": 0.06740878169449596,
+          "threshold": 0.023336078784902903
+        }
+      },
+      "gbdt_them_lich_su": {
+        "top500": {
+          "tp": 80,
+          "fp": 420,
+          "fn": 680,
+          "tn": 731906,
+          "alerts": 500,
+          "precision": 0.16,
+          "recall": 0.10526315789473684,
+          "f1": 0.12698412698412698
+        },
+        "top1000": {
+          "tp": 123,
+          "fp": 877,
+          "fn": 637,
+          "tn": 731449,
+          "alerts": 1000,
+          "precision": 0.123,
+          "recall": 0.1618421052631579,
+          "f1": 0.13977272727272727
+        },
+        "top2000": {
+          "tp": 181,
+          "fp": 1819,
+          "fn": 579,
+          "tn": 730507,
+          "alerts": 2000,
+          "precision": 0.0905,
+          "recall": 0.2381578947368421,
+          "f1": 0.13115942028985508
+        },
+        "f1_tot_nhat": {
+          "tp": 151,
+          "fp": 1053,
+          "fn": 609,
+          "tn": 731273,
+          "alerts": 1204,
+          "precision": 0.12541528239202657,
+          "recall": 0.1986842105263158,
+          "f1": 0.15376782077393075,
+          "threshold": 0.11197911814188788
+        }
+      },
+      "gbdt_dac_trung_day_du": {
+        "top500": {
+          "tp": 218,
+          "fp": 282,
+          "fn": 542,
+          "tn": 732044,
+          "alerts": 500,
+          "precision": 0.436,
+          "recall": 0.2868421052631579,
+          "f1": 0.346031746031746
+        },
+        "top1000": {
+          "tp": 250,
+          "fp": 750,
+          "fn": 510,
+          "tn": 731576,
+          "alerts": 1000,
+          "precision": 0.25,
+          "recall": 0.32894736842105265,
+          "f1": 0.2840909090909091
+        },
+        "top2000": {
+          "tp": 275,
+          "fp": 1725,
+          "fn": 485,
+          "tn": 730601,
+          "alerts": 2000,
+          "precision": 0.1375,
+          "recall": 0.3618421052631579,
+          "f1": 0.1992753623188406
+        },
+        "f1_tot_nhat": {
+          "tp": 219,
+          "fp": 288,
+          "fn": 541,
+          "tn": 732038,
+          "alerts": 507,
+          "precision": 0.4319526627218935,
+          "recall": 0.2881578947368421,
+          "f1": 0.34569850039463296,
+          "threshold": 0.27811870994216437
+        }
+      },
+      "gbdt_can_bang": {
+        "top500": {
+          "tp": 277,
+          "fp": 223,
+          "fn": 483,
+          "tn": 732103,
+          "alerts": 500,
+          "precision": 0.554,
+          "recall": 0.36447368421052634,
+          "f1": 0.43968253968253973
+        },
+        "top1000": {
+          "tp": 317,
+          "fp": 683,
+          "fn": 443,
+          "tn": 731643,
+          "alerts": 1000,
+          "precision": 0.317,
+          "recall": 0.41710526315789476,
+          "f1": 0.36022727272727273
+        },
+        "top2000": {
+          "tp": 390,
+          "fp": 1610,
+          "fn": 370,
+          "tn": 730716,
+          "alerts": 2000,
+          "precision": 0.195,
+          "recall": 0.5131578947368421,
+          "f1": 0.28260869565217395
+        },
+        "f1_tot_nhat": {
+          "tp": 248,
+          "fp": 47,
+          "fn": 512,
+          "tn": 732279,
+          "alerts": 295,
+          "precision": 0.8406779661016949,
+          "recall": 0.3263157894736842,
+          "f1": 0.47014218009478675,
+          "threshold": 0.9757300227860948
+        }
+      },
+      "cay_quyet_dinh": {
+        "top500": {
+          "tp": 293,
+          "fp": 207,
+          "fn": 467,
+          "tn": 732119,
+          "alerts": 500,
+          "precision": 0.586,
+          "recall": 0.38552631578947366,
+          "f1": 0.4650793650793651
+        },
+        "top1000": {
+          "tp": 294,
+          "fp": 706,
+          "fn": 466,
+          "tn": 731620,
+          "alerts": 1000,
+          "precision": 0.294,
+          "recall": 0.3868421052631579,
+          "f1": 0.33409090909090905
+        },
+        "top2000": {
+          "tp": 294,
+          "fp": 1706,
+          "fn": 466,
+          "tn": 730620,
+          "alerts": 2000,
+          "precision": 0.147,
+          "recall": 0.3868421052631579,
+          "f1": 0.21304347826086953
+        },
+        "f1_tot_nhat": {
+          "tp": 290,
+          "fp": 29,
+          "fn": 470,
+          "tn": 732297,
+          "alerts": 319,
+          "precision": 0.9090909090909091,
+          "recall": 0.3815789473684211,
+          "f1": 0.5375347544022243,
+          "threshold": 0.9949311911452129
+        }
+      },
+      "random_forest": {
+        "top500": {
+          "tp": 226,
+          "fp": 274,
+          "fn": 534,
+          "tn": 732052,
+          "alerts": 500,
+          "precision": 0.452,
+          "recall": 0.29736842105263156,
+          "f1": 0.35873015873015873
+        },
+        "top1000": {
+          "tp": 290,
+          "fp": 710,
+          "fn": 470,
+          "tn": 731616,
+          "alerts": 1000,
+          "precision": 0.29,
+          "recall": 0.3815789473684211,
+          "f1": 0.32954545454545453
+        },
+        "top2000": {
+          "tp": 359,
+          "fp": 1641,
+          "fn": 401,
+          "tn": 730685,
+          "alerts": 2000,
+          "precision": 0.1795,
+          "recall": 0.4723684210526316,
+          "f1": 0.2601449275362319
+        },
+        "f1_tot_nhat": {
+          "tp": 210,
+          "fp": 171,
+          "fn": 550,
+          "tn": 732155,
+          "alerts": 381,
+          "precision": 0.5511811023622047,
+          "recall": 0.27631578947368424,
+          "f1": 0.3680981595092025,
+          "threshold": 0.831320813649651
+        }
+      },
+      "isolation_forest": {
+        "top500": {
+          "tp": 3,
+          "fp": 497,
+          "fn": 757,
+          "tn": 731829,
+          "alerts": 500,
+          "precision": 0.006,
+          "recall": 0.003947368421052632,
+          "f1": 0.004761904761904762
+        },
+        "top1000": {
+          "tp": 5,
+          "fp": 995,
+          "fn": 755,
+          "tn": 731331,
+          "alerts": 1000,
+          "precision": 0.005,
+          "recall": 0.006578947368421052,
+          "f1": 0.005681818181818181
+        },
+        "top2000": {
+          "tp": 12,
+          "fp": 1988,
+          "fn": 748,
+          "tn": 730338,
+          "alerts": 2000,
+          "precision": 0.006,
+          "recall": 0.015789473684210527,
+          "f1": 0.008695652173913044
+        },
+        "f1_tot_nhat": {
+          "tp": 169,
+          "fp": 22227,
+          "fn": 591,
+          "tn": 710099,
+          "alerts": 22396,
+          "precision": 0.007545990355420611,
+          "recall": 0.22236842105263158,
+          "f1": 0.01459664881672137,
+          "threshold": 0.5729143635520227
+        }
+      },
+      "bang_tra_kenh": {
+        "top500": {
+          "tp": 3,
+          "fp": 497,
+          "fn": 757,
+          "tn": 731829,
+          "alerts": 500,
+          "precision": 0.006,
+          "recall": 0.003947368421052632,
+          "f1": 0.004761904761904762
+        },
+        "top1000": {
+          "tp": 6,
+          "fp": 994,
+          "fn": 754,
+          "tn": 731332,
+          "alerts": 1000,
+          "precision": 0.006,
+          "recall": 0.007894736842105263,
+          "f1": 0.006818181818181818
+        },
+        "top2000": {
+          "tp": 14,
+          "fp": 1986,
+          "fn": 746,
+          "tn": 730340,
+          "alerts": 2000,
+          "precision": 0.007,
+          "recall": 0.018421052631578946,
+          "f1": 0.010144927536231883
+        },
+        "f1_tot_nhat": {
+          "tp": 651,
+          "fp": 92290,
+          "fn": 109,
+          "tn": 640036,
+          "alerts": 92941,
+          "precision": 0.007004443679323442,
+          "recall": 0.8565789473684211,
+          "f1": 0.013895262590580678,
+          "threshold": 0.005953199500941361
+        }
+      }
+    },
+    "confusion_markdown_table": "| Phương pháp | Điểm vận hành | TP | FP | FN | TN | Precision | Recall | F1 |\n|---|---|---|---|---|---|---|---|---|\n| drre_aml_probe.pt (drre_trained_mang_trang_thai) | top500 | 231 | 269 | 529 | 732,057 | 0.462 | 0.304 | 0.367 |\n| drre_aml_probe.pt (drre_trained_mang_trang_thai) | top1000 | 301 | 699 | 459 | 731,627 | 0.301 | 0.396 | 0.342 |\n| drre_aml_probe.pt (drre_trained_mang_trang_thai) | top2000 | 357 | 1,643 | 403 | 730,683 | 0.178 | 0.470 | 0.259 |\n| drre_aml_probe.pt (drre_trained_mang_trang_thai) | f1_tot_nhat | 265 | 367 | 495 | 731,959 | 0.419 | 0.349 | 0.381 |\n| ngau_nhien | top500 | 0 | 500 | 760 | 731,826 | 0.000 | 0.000 | 0.000 |\n| ngau_nhien | top1000 | 1 | 999 | 759 | 731,327 | 0.001 | 0.001 | 0.001 |\n| ngau_nhien | top2000 | 3 | 1,997 | 757 | 730,329 | 0.002 | 0.004 | 0.002 |\n| ngau_nhien | f1_tot_nhat | 110 | 91,985 | 650 | 640,341 | 0.001 | 0.145 | 0.002 |\n| chi_so_tien | top500 | 1 | 499 | 759 | 731,827 | 0.002 | 0.001 | 0.002 |\n| chi_so_tien | top1000 | 2 | 998 | 758 | 731,328 | 0.002 | 0.003 | 0.002 |\n| chi_so_tien | top2000 | 3 | 1,997 | 757 | 730,329 | 0.002 | 0.004 | 0.002 |\n| chi_so_tien | f1_tot_nhat | 48 | 23,098 | 712 | 709,228 | 0.002 | 0.063 | 0.004 |\n| logistic_cung_dau_vao | top500 | 3 | 497 | 757 | 731,829 | 0.006 | 0.004 | 0.005 |\n| logistic_cung_dau_vao | top1000 | 8 | 992 | 752 | 731,334 | 0.008 | 0.011 | 0.009 |\n| logistic_cung_dau_vao | top2000 | 13 | 1,987 | 747 | 730,339 | 0.006 | 0.017 | 0.009 |\n| logistic_cung_dau_vao | f1_tot_nhat | 393 | 28,810 | 367 | 703,516 | 0.013 | 0.517 | 0.026 |\n| gbdt_cung_dau_vao | top500 | 15 | 485 | 745 | 731,841 | 0.030 | 0.020 | 0.024 |\n| gbdt_cung_dau_vao | top1000 | 42 | 958 | 718 | 731,368 | 0.042 | 0.055 | 0.048 |\n| gbdt_cung_dau_vao | top2000 | 89 | 1,911 | 671 | 730,415 | 0.044 | 0.117 | 0.064 |\n| gbdt_cung_dau_vao | f1_tot_nhat | 109 | 2,365 | 651 | 729,961 | 0.044 | 0.143 | 0.067 |\n| gbdt_them_lich_su | top500 | 80 | 420 | 680 | 731,906 | 0.160 | 0.105 | 0.127 |\n| gbdt_them_lich_su | top1000 | 123 | 877 | 637 | 731,449 | 0.123 | 0.162 | 0.140 |\n| gbdt_them_lich_su | top2000 | 181 | 1,819 | 579 | 730,507 | 0.090 | 0.238 | 0.131 |\n| gbdt_them_lich_su | f1_tot_nhat | 151 | 1,053 | 609 | 731,273 | 0.125 | 0.199 | 0.154 |\n| gbdt_dac_trung_day_du | top500 | 218 | 282 | 542 | 732,044 | 0.436 | 0.287 | 0.346 |\n| gbdt_dac_trung_day_du | top1000 | 250 | 750 | 510 | 731,576 | 0.250 | 0.329 | 0.284 |\n| gbdt_dac_trung_day_du | top2000 | 275 | 1,725 | 485 | 730,601 | 0.138 | 0.362 | 0.199 |\n| gbdt_dac_trung_day_du | f1_tot_nhat | 219 | 288 | 541 | 732,038 | 0.432 | 0.288 | 0.346 |\n| gbdt_can_bang | top500 | 277 | 223 | 483 | 732,103 | 0.554 | 0.364 | 0.440 |\n| gbdt_can_bang | top1000 | 317 | 683 | 443 | 731,643 | 0.317 | 0.417 | 0.360 |\n| gbdt_can_bang | top2000 | 390 | 1,610 | 370 | 730,716 | 0.195 | 0.513 | 0.283 |\n| gbdt_can_bang | f1_tot_nhat | 248 | 47 | 512 | 732,279 | 0.841 | 0.326 | 0.470 |\n| cay_quyet_dinh | top500 | 293 | 207 | 467 | 732,119 | 0.586 | 0.386 | 0.465 |\n| cay_quyet_dinh | top1000 | 294 | 706 | 466 | 731,620 | 0.294 | 0.387 | 0.334 |\n| cay_quyet_dinh | top2000 | 294 | 1,706 | 466 | 730,620 | 0.147 | 0.387 | 0.213 |\n| cay_quyet_dinh | f1_tot_nhat | 290 | 29 | 470 | 732,297 | 0.909 | 0.382 | 0.538 |\n| random_forest | top500 | 226 | 274 | 534 | 732,052 | 0.452 | 0.297 | 0.359 |\n| random_forest | top1000 | 290 | 710 | 470 | 731,616 | 0.290 | 0.382 | 0.330 |\n| random_forest | top2000 | 359 | 1,641 | 401 | 730,685 | 0.179 | 0.472 | 0.260 |\n| random_forest | f1_tot_nhat | 210 | 171 | 550 | 732,155 | 0.551 | 0.276 | 0.368 |\n| isolation_forest | top500 | 3 | 497 | 757 | 731,829 | 0.006 | 0.004 | 0.005 |\n| isolation_forest | top1000 | 5 | 995 | 755 | 731,331 | 0.005 | 0.007 | 0.006 |\n| isolation_forest | top2000 | 12 | 1,988 | 748 | 730,338 | 0.006 | 0.016 | 0.009 |\n| isolation_forest | f1_tot_nhat | 169 | 22,227 | 591 | 710,099 | 0.008 | 0.222 | 0.015 |\n| bang_tra_kenh | top500 | 3 | 497 | 757 | 731,829 | 0.006 | 0.004 | 0.005 |\n| bang_tra_kenh | top1000 | 6 | 994 | 754 | 731,332 | 0.006 | 0.008 | 0.007 |\n| bang_tra_kenh | top2000 | 14 | 1,986 | 746 | 730,340 | 0.007 | 0.018 | 0.010 |\n| bang_tra_kenh | f1_tot_nhat | 651 | 92,290 | 109 | 640,036 | 0.007 | 0.857 | 0.014 |",
+    "by_channel": [
+      {
+        "channel": "ach",
+        "n": 92941,
+        "n_pos": 651,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "in_top": 1993,
+            "tp_top": 357,
+            "auprc": 0.2791420968619542,
+            "tp_nguong": 265,
+            "fp_nguong": 366
+          },
+          "ngau_nhien": {
+            "in_top": 239,
+            "tp_top": 3,
+            "auprc": 0.007337533924722839,
+            "tp_nguong": 98,
+            "fp_nguong": 11662
+          },
+          "chi_so_tien": {
+            "in_top": 375,
+            "tp_top": 3,
+            "auprc": 0.01057768142187611,
+            "tp_nguong": 44,
+            "fp_nguong": 3962
+          },
+          "logistic_cung_dau_vao": {
+            "in_top": 2000,
+            "tp_top": 13,
+            "auprc": 0.01057768142187611,
+            "tp_nguong": 393,
+            "fp_nguong": 28810
+          },
+          "gbdt_cung_dau_vao": {
+            "in_top": 2000,
+            "tp_top": 89,
+            "auprc": 0.02353162271706844,
+            "tp_nguong": 109,
+            "fp_nguong": 2365
+          },
+          "gbdt_them_lich_su": {
+            "in_top": 1928,
+            "tp_top": 181,
+            "auprc": 0.06745185549891465,
+            "tp_nguong": 151,
+            "fp_nguong": 987
+          },
+          "gbdt_dac_trung_day_du": {
+            "in_top": 1881,
+            "tp_top": 275,
+            "auprc": 0.24008130796443963,
+            "tp_nguong": 219,
+            "fp_nguong": 270
+          },
+          "gbdt_can_bang": {
+            "in_top": 1897,
+            "tp_top": 388,
+            "auprc": 0.49305795925940754,
+            "tp_nguong": 248,
+            "fp_nguong": 37
+          },
+          "cay_quyet_dinh": {
+            "in_top": 653,
+            "tp_top": 293,
+            "auprc": 0.4453662245504661,
+            "tp_nguong": 290,
+            "fp_nguong": 29
+          },
+          "random_forest": {
+            "in_top": 2000,
+            "tp_top": 359,
+            "auprc": 0.37651700185880993,
+            "tp_nguong": 210,
+            "fp_nguong": 171
+          },
+          "isolation_forest": {
+            "in_top": 863,
+            "tp_top": 12,
+            "auprc": 0.02139433244763925,
+            "tp_nguong": 149,
+            "fp_nguong": 6612
+          },
+          "bang_tra_kenh": {
+            "in_top": 2000,
+            "tp_top": 14,
+            "auprc": 0.007004443679323442,
+            "tp_nguong": 651,
+            "fp_nguong": 92290
+          }
+        }
+      },
+      {
+        "channel": "bitcoin",
+        "n": 22564,
+        "n_pos": 10,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0048530511547771405,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "ngau_nhien": {
+            "in_top": 70,
+            "tp_top": 0,
+            "auprc": 0.0006259692765132714,
+            "tp_nguong": 1,
+            "fp_nguong": 2738
+          },
+          "chi_so_tien": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0007618833997469912,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "logistic_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0007618833997469912,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0010039307897489458,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_them_lich_su": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0007907582998833994,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_dac_trung_day_du": {
+            "in_top": 13,
+            "tp_top": 0,
+            "auprc": 0.0011244211387099092,
+            "tp_nguong": 0,
+            "fp_nguong": 4
+          },
+          "gbdt_can_bang": {
+            "in_top": 76,
+            "tp_top": 2,
+            "auprc": 0.0388800330832419,
+            "tp_nguong": 0,
+            "fp_nguong": 1
+          },
+          "cay_quyet_dinh": {
+            "in_top": 67,
+            "tp_top": 1,
+            "auprc": 0.0028465763422281564,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "random_forest": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.025327792513443397,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "isolation_forest": {
+            "in_top": 107,
+            "tp_top": 0,
+            "auprc": 0.0034053600384470937,
+            "tp_nguong": 3,
+            "fp_nguong": 482
+          },
+          "bang_tra_kenh": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0004431838326537848,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          }
+        }
+      },
+      {
+        "channel": "cash",
+        "n": 80937,
+        "n_pos": 17,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.003166314682251057,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "ngau_nhien": {
+            "in_top": 206,
+            "tp_top": 0,
+            "auprc": 0.00022048697736375388,
+            "tp_nguong": 2,
+            "fp_nguong": 10248
+          },
+          "chi_so_tien": {
+            "in_top": 414,
+            "tp_top": 0,
+            "auprc": 0.000298692125780777,
+            "tp_nguong": 2,
+            "fp_nguong": 4653
+          },
+          "logistic_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.000298692125780777,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.00018704130427516739,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_them_lich_su": {
+            "in_top": 13,
+            "tp_top": 0,
+            "auprc": 0.0010077571072203296,
+            "tp_nguong": 0,
+            "fp_nguong": 13
+          },
+          "gbdt_dac_trung_day_du": {
+            "in_top": 33,
+            "tp_top": 0,
+            "auprc": 0.0011570134735171052,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_can_bang": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0008971627058046374,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "cay_quyet_dinh": {
+            "in_top": 126,
+            "tp_top": 0,
+            "auprc": 0.0008380923815196548,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "random_forest": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0008588643399549819,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "isolation_forest": {
+            "in_top": 493,
+            "tp_top": 0,
+            "auprc": 0.0009447166336168532,
+            "tp_nguong": 3,
+            "fp_nguong": 5075
+          },
+          "bang_tra_kenh": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.00021003990758244065,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          }
+        }
+      },
+      {
+        "channel": "cheque",
+        "n": 309880,
+        "n_pos": 45,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "in_top": 5,
+            "tp_top": 0,
+            "auprc": 0.0009479239270534639,
+            "tp_nguong": 0,
+            "fp_nguong": 1
+          },
+          "ngau_nhien": {
+            "in_top": 881,
+            "tp_top": 0,
+            "auprc": 0.0001544879464518228,
+            "tp_nguong": 5,
+            "fp_nguong": 38762
+          },
+          "chi_so_tien": {
+            "in_top": 1159,
+            "tp_top": 0,
+            "auprc": 0.0001693473479555281,
+            "tp_nguong": 2,
+            "fp_nguong": 12393
+          },
+          "logistic_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0001693473479555281,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0001336487341861015,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_them_lich_su": {
+            "in_top": 5,
+            "tp_top": 0,
+            "auprc": 0.0011779954721825258,
+            "tp_nguong": 0,
+            "fp_nguong": 5
+          },
+          "gbdt_dac_trung_day_du": {
+            "in_top": 16,
+            "tp_top": 0,
+            "auprc": 0.0011848499392803982,
+            "tp_nguong": 0,
+            "fp_nguong": 2
+          },
+          "gbdt_can_bang": {
+            "in_top": 27,
+            "tp_top": 0,
+            "auprc": 0.0010675595126281219,
+            "tp_nguong": 0,
+            "fp_nguong": 9
+          },
+          "cay_quyet_dinh": {
+            "in_top": 749,
+            "tp_top": 0,
+            "auprc": 0.0008174816649999412,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "random_forest": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0012187200913011643,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "isolation_forest": {
+            "in_top": 420,
+            "tp_top": 0,
+            "auprc": 0.0010837805892161424,
+            "tp_nguong": 4,
+            "fp_nguong": 5071
+          },
+          "bang_tra_kenh": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0001452175035497612,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          }
+        }
+      },
+      {
+        "channel": "credit card",
+        "n": 226764,
+        "n_pos": 37,
+        "methods": {
+          "drre_aml_probe.pt (drre_trained_mang_trang_thai)": {
+            "in_top": 2,
+            "tp_top": 0,
+            "auprc": 0.0016696665046870799,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "ngau_nhien": {
+            "in_top": 604,
+            "tp_top": 0,
+            "auprc": 0.0001719352053209936,
+            "tp_nguong": 4,
+            "fp_nguong": 28575
+          },
+          "chi_so_tien": {
+            "in_top": 52,
+            "tp_top": 0,
+            "auprc": 0.0001532937837914077,
+            "tp_nguong": 0,
+            "fp_nguong": 2090
+          },
+          "logistic_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0001532937837914077,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_cung_dau_vao": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.00020535567212399245,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "gbdt_them_lich_su": {
+            "in_top": 54,
+            "tp_top": 0,
+            "auprc": 0.0015635384475533396,
+            "tp_nguong": 0,
+            "fp_nguong": 48
+          },
+          "gbdt_dac_trung_day_du": {
+            "in_top": 57,
+            "tp_top": 0,
+            "auprc": 0.0015128644744025123,
+            "tp_nguong": 0,
+            "fp_nguong": 12
+          },
+          "gbdt_can_bang": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0022108984589419857,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "cay_quyet_dinh": {
+            "in_top": 405,
+            "tp_top": 0,
+            "auprc": 0.0014047640030635535,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "random_forest": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0020288656918787708,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          },
+          "isolation_forest": {
+            "in_top": 117,
+            "tp_top": 0,
+            "auprc": 0.0014348848573636054,
+            "tp_nguong": 10,
+            "fp_nguong": 4987
+          },
+          "bang_tra_kenh": {
+            "in_top": 0,
+            "tp_top": 0,
+            "auprc": 0.0001631652290487026,
+            "tp_nguong": 0,
+            "fp_nguong": 0
+          }
+        }
+      }
+    ],
+    "by_channel_markdown_table": "| Kênh | Giao dịch | Nhãn dương | drre_aml_probe.pt (drre_trained_mang_trang_thai): AUPRC / trong top 2,000 / bắt được ở ngưỡng | gbdt_can_bang: AUPRC / trong top 2,000 / bắt được ở ngưỡng |\n|---|---|---|---|---|\n| ach | 92,941 | 651 | 0.2791 / 1,993 / 265 | 0.4931 / 1,897 / 248 |\n| bitcoin | 22,564 | 10 | 0.0049 / 0 / 0 | 0.0389 / 76 / 0 |\n| cash | 80,937 | 17 | 0.0032 / 0 / 0 | 0.0009 / 0 / 0 |\n| cheque | 309,880 | 45 | 0.0009 / 5 / 0 | 0.0011 / 27 / 0 |\n| credit card | 226,764 | 37 | 0.0017 / 2 / 0 | 0.0022 / 0 / 0 |"
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "bae5bbba015da49d7bd87e57c2ae3e85fd193cda",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/evaluate.py",
+      "--keep-awake",
+      "--source",
+      "amlworld",
+      "--split",
+      "val",
+      "--checkpoint",
+      "models/drre_aml_probe.pt",
+      "--processed-dir",
+      "data/processed_aml",
+      "--compare-baseline",
+      "gbdt_can_bang",
+      "--by-typology",
+      "--out-dir",
+      "reports/r0"
+    ]
+  },
+  "notes": []
+}
