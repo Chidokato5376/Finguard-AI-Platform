@@ -30,7 +30,8 @@ from sklearn.ensemble import HistGradientBoostingClassifier  # noqa: E402
 from sklearn.metrics import average_precision_score as ap  # noqa: E402
 
 from src.dashboard.scoring_service import try_load_drre_checkpoint  # noqa: E402
-from src.data.scenarios.store import read_split  # noqa: E402
+from src.data.scenarios.store import module_of, read_split  # noqa: E402
+from src.drre.past_graph import make_buffer  # noqa: E402
 from src.drre.train import BehaviorStateStore  # noqa: E402
 from src.evaluation.stateful_scoring import (  # noqa: E402
     DEFAULT_WINDOW, fingerprint, required_capacity, score_split, stream_columns, time_sorted,
@@ -119,14 +120,16 @@ def main() -> int:
         model.behavior_memory.hidden_dim, model.behavior_memory.num_slots,
         capacity=required_capacity([train, val]))
     window = DEFAULT_WINDOW
+    graph_buffer = make_buffer(model)
     warm_up_store(model, engine, train, store, cache,
                   fingerprint(args.checkpoint, [train_path], window), window=window,
-                  on_window=_writer(e_train, s_train))
+                  on_window=_writer(e_train, s_train), graph_buffer=graph_buffer)
     logger.info("Quét train xong: gặp lại %.1f%% tài khoản, %d lần đẩy khỏi bộ đệm",
                 100 * store.hit_rate, store.evictions)
 
     e_val, s_val = _memmaps(folder, "val", len(val), dim, create=True)
-    score_split(model, engine, val, store, window=window, on_window=_writer(e_val, s_val))
+    score_split(model, engine, val, store, window=window, on_window=_writer(e_val, s_val),
+                graph_buffer=graph_buffer)
     del store
 
     u_train = train["eval_universe"].astype(bool).to_numpy()
@@ -199,7 +202,14 @@ def main() -> int:
     labels = y_val[subset]
     model_all = fitted["gbdt+emb_drre+diem"]
     base = ap(labels, model_all.predict_proba(matrix)[:, 1])
-    columns_of = {g: [features.index(c) for c in cs if c in features] for g, cs in GROUPS.items()}
+    # Nhóm cố định cho 20 cột gốc; cột kịch bản (src/data/scenarios) gom theo mô-đun, để
+    # MỌI cột của checkpoint đều thuộc đúng một nhóm (trước đây cột kịch bản bị bỏ sót).
+    groups = {g: [c for c in cs if c in features] for g, cs in GROUPS.items()}
+    covered = {c for cs in groups.values() for c in cs}
+    for column in features:
+        if column not in covered:
+            groups.setdefault(f"kich_ban_{module_of(column) or 'khac'}", []).append(column)
+    columns_of = {g: [features.index(c) for c in cs] for g, cs in groups.items() if cs}
     columns_of["DRRE"] = list(range(len(features), len(features) + PCA_DIM + 1))
     drops = {}
     for group, index in columns_of.items():

@@ -1,0 +1,508 @@
+{
+  "split": "val",
+  "data": "data\\processed_aml_v2",
+  "n_rows": 733086,
+  "n_pos": 760,
+  "base_rate": 0.0010367132914828547,
+  "bootstrap": 300,
+  "leader": "gbdt_28",
+  "models": {
+    "R2": {
+      "auprc": 0.17401538096889269,
+      "roc_auc": 0.9753153838806616,
+      "caught@500": 147,
+      "caught@1000": 226,
+      "caught@2000": 344,
+      "f1_best": 0.26756496631376325,
+      "precision_at_f1": 0.2109256449165402,
+      "recall_at_f1": 0.36578947368421055,
+      "alerts_at_f1": 1318,
+      "tp_at_f1": 278,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.6,
+        "CYCLE": 0.7254901960784313,
+        "FAN-IN": 0.6590909090909091,
+        "FAN-OUT": 0.5853658536585366,
+        "GATHER-SCATTER": 0.7142857142857143,
+        "RANDOM": 0.5454545454545454,
+        "SCATTER-GATHER": 0.7634408602150538,
+        "STACK": 0.5714285714285714,
+        "UNSPECIFIED": 0.13377926421404682
+      }
+    },
+    "R3": {
+      "auprc": 0.34900394010381797,
+      "roc_auc": 0.983417085639312,
+      "caught@500": 241,
+      "caught@1000": 279,
+      "caught@2000": 330,
+      "f1_best": 0.3921246923707957,
+      "precision_at_f1": 0.5206971677559913,
+      "recall_at_f1": 0.3144736842105263,
+      "alerts_at_f1": 459,
+      "tp_at_f1": 239,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.42857142857142855,
+        "CYCLE": 0.6274509803921569,
+        "FAN-IN": 0.5454545454545454,
+        "FAN-OUT": 0.7073170731707317,
+        "GATHER-SCATTER": 0.8,
+        "RANDOM": 0.4090909090909091,
+        "SCATTER-GATHER": 0.7741935483870968,
+        "STACK": 0.47619047619047616,
+        "UNSPECIFIED": 0.14381270903010032
+      }
+    },
+    "R4": {
+      "auprc": 0.2586710249596648,
+      "roc_auc": 0.9808233834816448,
+      "caught@500": 188,
+      "caught@1000": 273,
+      "caught@2000": 377,
+      "f1_best": 0.3193504736129905,
+      "precision_at_f1": 0.3286908077994429,
+      "recall_at_f1": 0.3105263157894737,
+      "alerts_at_f1": 718,
+      "tp_at_f1": 236,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.6571428571428571,
+        "CYCLE": 0.6470588235294118,
+        "FAN-IN": 0.5909090909090909,
+        "FAN-OUT": 0.926829268292683,
+        "GATHER-SCATTER": 0.9,
+        "RANDOM": 0.4090909090909091,
+        "SCATTER-GATHER": 0.7956989247311828,
+        "STACK": 0.638095238095238,
+        "UNSPECIFIED": 0.14715719063545152
+      }
+    },
+    "R5": {
+      "auprc": 0.35490022713429986,
+      "roc_auc": 0.9838998543501694,
+      "caught@500": 228,
+      "caught@1000": 312,
+      "caught@2000": 411,
+      "f1_best": 0.3656422379826635,
+      "precision_at_f1": 0.45579567779960706,
+      "recall_at_f1": 0.30526315789473685,
+      "alerts_at_f1": 509,
+      "tp_at_f1": 232,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.8,
+        "CYCLE": 0.8235294117647058,
+        "FAN-IN": 0.5681818181818182,
+        "FAN-OUT": 1.0,
+        "GATHER-SCATTER": 0.8428571428571429,
+        "RANDOM": 0.8181818181818182,
+        "SCATTER-GATHER": 0.7419354838709677,
+        "STACK": 0.7428571428571429,
+        "UNSPECIFIED": 0.1705685618729097
+      }
+    },
+    "gbdt_28": {
+      "auprc": 0.573495978249219,
+      "roc_auc": 0.9845788983537243,
+      "caught@500": 367,
+      "caught@1000": 438,
+      "caught@2000": 503,
+      "f1_best": 0.5888077858880778,
+      "precision_at_f1": 0.7674418604651163,
+      "recall_at_f1": 0.4776315789473684,
+      "alerts_at_f1": 473,
+      "tp_at_f1": 363,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.8571428571428571,
+        "CYCLE": 0.9411764705882353,
+        "FAN-IN": 0.8181818181818182,
+        "FAN-OUT": 0.975609756097561,
+        "GATHER-SCATTER": 0.9428571428571428,
+        "RANDOM": 0.9545454545454546,
+        "SCATTER-GATHER": 0.956989247311828,
+        "STACK": 0.9047619047619048,
+        "UNSPECIFIED": 0.2608695652173913
+      }
+    },
+    "rf_28": {
+      "auprc": 0.39986883152195396,
+      "roc_auc": 0.9830661616116607,
+      "caught@500": 268,
+      "caught@1000": 357,
+      "caught@2000": 436,
+      "f1_best": 0.4349112426035503,
+      "precision_at_f1": 0.4966216216216216,
+      "recall_at_f1": 0.3868421052631579,
+      "alerts_at_f1": 592,
+      "tp_at_f1": 294,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.7714285714285715,
+        "CYCLE": 0.7254901960784313,
+        "FAN-IN": 0.7045454545454546,
+        "FAN-OUT": 0.8292682926829268,
+        "GATHER-SCATTER": 0.7714285714285715,
+        "RANDOM": 0.7727272727272727,
+        "SCATTER-GATHER": 0.8924731182795699,
+        "STACK": 0.819047619047619,
+        "UNSPECIFIED": 0.22408026755852842
+      }
+    },
+    "logistic_28": {
+      "auprc": 0.04730687776966635,
+      "roc_auc": 0.9745500368185179,
+      "caught@500": 43,
+      "caught@1000": 87,
+      "caught@2000": 155,
+      "f1_best": 0.11675126903553298,
+      "precision_at_f1": 0.08603491271820449,
+      "recall_at_f1": 0.18157894736842106,
+      "alerts_at_f1": 1604,
+      "tp_at_f1": 138,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.22857142857142856,
+        "CYCLE": 0.27450980392156865,
+        "FAN-IN": 0.3409090909090909,
+        "FAN-OUT": 0.12195121951219512,
+        "GATHER-SCATTER": 0.35714285714285715,
+        "RANDOM": 0.22727272727272727,
+        "SCATTER-GATHER": 0.3118279569892473,
+        "STACK": 0.13333333333333333,
+        "UNSPECIFIED": 0.13377926421404682
+      }
+    },
+    "gbdt_20": {
+      "auprc": 0.4603124668985599,
+      "roc_auc": 0.9833291511531319,
+      "caught@500": 297,
+      "caught@1000": 369,
+      "caught@2000": 446,
+      "f1_best": 0.48678213309024615,
+      "precision_at_f1": 0.7922848664688428,
+      "recall_at_f1": 0.3513157894736842,
+      "alerts_at_f1": 337,
+      "tp_at_f1": 267,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.8571428571428571,
+        "CYCLE": 0.7450980392156863,
+        "FAN-IN": 0.7727272727272727,
+        "FAN-OUT": 0.9512195121951219,
+        "GATHER-SCATTER": 0.8714285714285714,
+        "RANDOM": 0.8181818181818182,
+        "SCATTER-GATHER": 0.8817204301075269,
+        "STACK": 0.7428571428571429,
+        "UNSPECIFIED": 0.22073578595317725
+      }
+    },
+    "ngau_nhien": {
+      "auprc": 0.0010711989111623391,
+      "roc_auc": 0.5120129218408196,
+      "caught@500": 0,
+      "caught@1000": 1,
+      "caught@2000": 3,
+      "f1_best": 0.002369285445048732,
+      "precision_at_f1": 0.0011944188066670286,
+      "recall_at_f1": 0.14473684210526316,
+      "alerts_at_f1": 92095,
+      "tp_at_f1": 110,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.0,
+        "CYCLE": 0.0196078431372549,
+        "FAN-IN": 0.0,
+        "FAN-OUT": 0.0,
+        "GATHER-SCATTER": 0.014285714285714285,
+        "RANDOM": 0.0,
+        "SCATTER-GATHER": 0.010752688172043012,
+        "STACK": 0.0,
+        "UNSPECIFIED": 0.0
+      }
+    }
+  },
+  "ranks": {
+    "auprc": {
+      "R2": 7,
+      "R3": 5,
+      "R4": 6,
+      "R5": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "roc_auc": {
+      "R2": 7,
+      "R3": 3,
+      "R4": 6,
+      "R5": 2,
+      "gbdt_28": 1,
+      "rf_28": 5,
+      "logistic_28": 8,
+      "gbdt_20": 4,
+      "ngau_nhien": 9
+    },
+    "caught@500": {
+      "R2": 7,
+      "R3": 4,
+      "R4": 6,
+      "R5": 5,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "caught@1000": {
+      "R2": 7,
+      "R3": 5,
+      "R4": 6,
+      "R5": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "caught@2000": {
+      "R2": 6,
+      "R3": 7,
+      "R4": 5,
+      "R5": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "f1_best": {
+      "R2": 7,
+      "R3": 4,
+      "R4": 6,
+      "R5": 5,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    }
+  },
+  "mean_rank": {
+    "R2": 6.833333333333333,
+    "R3": 4.666666666666667,
+    "R4": 5.833333333333333,
+    "R5": 4.0,
+    "gbdt_28": 1.0,
+    "rf_28": 3.3333333333333335,
+    "logistic_28": 8.0,
+    "gbdt_20": 2.3333333333333335,
+    "ngau_nhien": 9.0
+  },
+  "vs_leader": {
+    "R2": {
+      "lo": -0.43126130601762025,
+      "hi": -0.36459004665781536
+    },
+    "R3": {
+      "lo": -0.25291501159282026,
+      "hi": -0.19461925999411558
+    },
+    "R4": {
+      "lo": -0.3468046654458089,
+      "hi": -0.28300115829757994
+    },
+    "R5": {
+      "lo": -0.24530966455980918,
+      "hi": -0.18791698955056643
+    },
+    "rf_28": {
+      "lo": -0.2014083737413252,
+      "hi": -0.14709500438307516
+    },
+    "logistic_28": {
+      "lo": -0.5597955172425867,
+      "hi": -0.4918105405901118
+    },
+    "gbdt_20": {
+      "lo": -0.1348337412800433,
+      "hi": -0.09385778618696476
+    },
+    "ngau_nhien": {
+      "lo": -0.6083547186496197,
+      "hi": -0.5370247609741026
+    }
+  },
+  "n_features": {
+    "R2": 28,
+    "R3": 28,
+    "R4": 28,
+    "R5": 28,
+    "gbdt_28": 28,
+    "rf_28": 28,
+    "logistic_28": 28,
+    "gbdt_20": 20,
+    "ngau_nhien": 0
+  },
+  "drre_checkpoints": {
+    "R2": "models/drre_r2_hi_small.pt",
+    "R3": "models/drre_r3_hi_small.pt",
+    "R4": "models/drre_r4_hi_small.pt",
+    "R5": "models/drre_r5_hi_small.pt"
+  },
+  "classical_feature_columns": [
+    "amount_norm",
+    "channel_encoded",
+    "log_n_prior",
+    "log_gap",
+    "z_amount",
+    "log_amount_ratio",
+    "new_counterparty",
+    "log_n_distinct_cp",
+    "log_n_prior_as_cp",
+    "log_n_distinct_senders",
+    "hour_cos",
+    "dow",
+    "log_amt_out_prior",
+    "log_amt_in_prior",
+    "log_n_in_prior",
+    "passthrough_ratio",
+    "flow_imbalance",
+    "log_cp_amt_in_prior",
+    "mc_forward_ratio_24h",
+    "mc_amt_sim_last_in",
+    "mc_log_min_since_in",
+    "mc_log_age_days_cap3",
+    "cb_cross_bank",
+    "cb_log_n_banks_7d",
+    "cb_log_amount_usd",
+    "cy_reciprocity_7d",
+    "cy_log_n_reverse_7d",
+    "cy_log_min_since_reverse"
+  ],
+  "typology_n": {
+    "BIPARTITE": 35,
+    "CYCLE": 51,
+    "FAN-IN": 44,
+    "FAN-OUT": 41,
+    "GATHER-SCATTER": 70,
+    "RANDOM": 22,
+    "SCATTER-GATHER": 93,
+    "STACK": 105,
+    "UNSPECIFIED": 299
+  },
+  "typology_ranks": {
+    "BIPARTITE": {
+      "R2": 6,
+      "R3": 7,
+      "R4": 5,
+      "R5": 3,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 8,
+      "gbdt_20": 1,
+      "ngau_nhien": 9
+    },
+    "CYCLE": {
+      "R2": 4,
+      "R3": 7,
+      "R4": 6,
+      "R5": 2,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 8,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    },
+    "FAN-IN": {
+      "R2": 4,
+      "R3": 7,
+      "R4": 5,
+      "R5": 6,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "FAN-OUT": {
+      "R2": 7,
+      "R3": 6,
+      "R4": 4,
+      "R5": 1,
+      "gbdt_28": 2,
+      "rf_28": 5,
+      "logistic_28": 8,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    },
+    "GATHER-SCATTER": {
+      "R2": 7,
+      "R3": 5,
+      "R4": 2,
+      "R5": 4,
+      "gbdt_28": 1,
+      "rf_28": 6,
+      "logistic_28": 8,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    },
+    "RANDOM": {
+      "R2": 5,
+      "R3": 6,
+      "R4": 6,
+      "R5": 2,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 8,
+      "gbdt_20": 2,
+      "ngau_nhien": 9
+    },
+    "SCATTER-GATHER": {
+      "R2": 6,
+      "R3": 5,
+      "R4": 4,
+      "R5": 7,
+      "gbdt_28": 1,
+      "rf_28": 2,
+      "logistic_28": 8,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    },
+    "STACK": {
+      "R2": 6,
+      "R3": 7,
+      "R4": 5,
+      "R5": 3,
+      "gbdt_28": 1,
+      "rf_28": 2,
+      "logistic_28": 8,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    },
+    "UNSPECIFIED": {
+      "R2": 7,
+      "R3": 6,
+      "R4": 5,
+      "R5": 4,
+      "gbdt_28": 1,
+      "rf_28": 2,
+      "logistic_28": 7,
+      "gbdt_20": 3,
+      "ngau_nhien": 9
+    }
+  },
+  "typology_mean_rank": {
+    "R2": 5.777777777777778,
+    "R3": 6.222222222222222,
+    "R4": 4.666666666666667,
+    "R5": 3.5555555555555554,
+    "gbdt_28": 1.1111111111111112,
+    "rf_28": 3.5555555555555554,
+    "logistic_28": 7.888888888888889,
+    "gbdt_20": 2.5555555555555554,
+    "ngau_nhien": 9.0
+  },
+  "notes": [
+    "Một seed (42).",
+    "F1 tốt nhất chọn ngưỡng trên CHÍNH tập này nên lạc quan; chỉ dùng để so tương đối.",
+    "Checkpoint DRRE được chọn theo val nên val hơi lạc quan cho DRRE; số chốt là test, chạy một lần.",
+    "Mô hình cổ điển học trên vũ trụ chấm điểm của train, cùng bộ cột với DRRE."
+  ],
+  "seconds": 265.5
+}

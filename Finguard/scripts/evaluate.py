@@ -119,6 +119,7 @@ def _causal_history_features(df: pd.DataFrame) -> pd.DataFrame:
 def _baseline_scores(
     df_eval: pd.DataFrame, df_train: pd.DataFrame, seed: int,
     train_mask: np.ndarray | None = None, source: str | None = None,
+    extra_features: list[str] | None = None,
 ) -> dict[str, np.ndarray]:
     """Điểm của các baseline cổ điển, huấn luyện trên tập TRAIN rồi chấm
     tập đang đánh giá.
@@ -185,6 +186,10 @@ def _baseline_scores(
             col for col in features_for_source(source)
             if col in df_train.columns and col in df_eval.columns
         ]
+    # Cột kịch bản mà checkpoint DRRE dùng (src/data/scenarios): baseline PHẢI có
+    # đúng các cột đó, nếu không phép so DRRE–baseline là so 28 cột với 20 cột.
+    stored += [c for c in (extra_features or [])
+               if c not in stored and c in df_train.columns and c in df_eval.columns]
     if len(stored) > len(base_cols):
         feature_sets["dac_trung_day_du"] = (
             df_train[stored].astype(float).to_numpy(),
@@ -521,13 +526,18 @@ def _score_stateful(
         memory.hidden_dim, memory.num_slots, capacity=required_capacity([stream, df]))
     cache = Path(checkpoint).with_suffix(f".warm_{args.split}.pt")
     window = args.warm_window
+    from src.drre.past_graph import make_buffer
+
+    graph_buffer = make_buffer(model)
     warm_up_store(model, risk_engine, stream, store, cache,
-                  fingerprint(checkpoint, paths, window), window=window)
+                  fingerprint(checkpoint, paths, window), window=window,
+                  graph_buffer=graph_buffer)
     del stream
     logger.info("Làm nóng xong: gặp lại %.1f%% tài khoản, %d lần đẩy khỏi bộ đệm.",
                 100 * store.hit_rate, store.evictions)
     return pd.DataFrame({
-        "risk_score": score_split(model, risk_engine, df, store, window=window),
+        "risk_score": score_split(model, risk_engine, df, store, window=window,
+                                  graph_buffer=graph_buffer),
         "label": df["label"].to_numpy(),
         "method": "drre_trained_mang_trang_thai",
     })
@@ -823,11 +833,20 @@ def main(argv: list[str] | None = None) -> int:
             # Python trên MỖI dòng, tốn vài GB với 22 triệu dòng.
             df_train = pd.read_parquet(train_path, columns=[
                 c for c in pq.read_schema(train_path).names if c not in BASELINE_UNUSED_COLUMNS])
+            # Gắn ĐÚNG các cột kịch bản của checkpoint, trước mọi phép sắp xếp.
+            scenario_cols = [
+                c for c in _checkpoint_features(args.checkpoint, args.compare_checkpoint)
+                if module_of(c)]
+            df_train = attach_scenarios(df_train, train_path, scenario_cols)
+            if scenario_cols:
+                logger.info("Baseline nhận thêm %d cột kịch bản của checkpoint: %s",
+                            len(scenario_cols), scenario_cols)
             train_mask = None
             if args.universe == "clean" and "eval_universe" in df_train.columns:
                 train_mask = df_train["eval_universe"].fillna(True).to_numpy(dtype=bool)
             for name, scores in _baseline_scores(
-                    df, df_train, args.seed, train_mask, source=args.source).items():
+                    df, df_train, args.seed, train_mask, source=args.source,
+                    extra_features=scenario_cols).items():
                 results[name] = metrics_for(y, scores[keep], budgets)
                 score_map[name] = scores
 

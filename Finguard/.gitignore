@@ -46,3 +46,5 @@ logs/
 # Điểm từng biến thể R1 (vài trăm MB, tái tạo được bằng scripts/run_r1.sh) và dấu đã chạy xong.
 reports/r1/*/scores/
 reports/r0/*.done
+reports/leaderboard/*/scores/
+reports/r[0-9]*/*.done
