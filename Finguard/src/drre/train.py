@@ -64,6 +64,10 @@ import yaml
 from torch import nn
 
 from src.dashboard.graph_utils import build_account_graph
+from src.drre.past_graph import (
+    DEFAULT_BLOCK, DEFAULT_FANOUT, DEFAULT_LOOKBACK_HOURS, GRAPH_ARCHES, GRAPH_MODES, BlockGraph,
+    PastGraphBuffer, encode_rows,
+)
 from src.drre.losses import DRRECompositeLoss, EMATargetEncoder, prediction_loss
 from src.drre.model import DRRE, build_drre
 from src.scoring.risk_scoring import RiskScoringEngine, build_risk_engine
@@ -439,8 +443,13 @@ def run_encoder_over_window(
     device: torch.device,
     feature_columns: Sequence[str] = FEATURE_COLUMNS,
     state_store: BehaviorStateStore | None = None,
+    graphs: list[BlockGraph] | None = None,
 ) -> dict[str, torch.Tensor]:
     """Chạy DRRE cho một cửa sổ theo BƯỚC THỜI GIAN thay vì theo từng dòng.
+
+    `graphs` (đồ thị quá khứ theo khối, src/drre/past_graph.py) thay cho đồ thị
+    cửa sổ: khi có, node_features/edge_index/account_to_idx bị bỏ qua và mỗi dòng
+    nhận embedding đồ thị của riêng khối nó.
 
     Cùng một phép tính như run_encoder_over_window_sequential: mỗi tài
     khoản vẫn đi qua GRU đúng thứ tự thời gian của nó. Khác biệt duy nhất
@@ -470,21 +479,24 @@ def run_encoder_over_window(
     # cho 20 epoch. Thiếu đúng một tham số này là mất gần hai ngày máy.
     position = window.groupby("account_id", sort=False, observed=True).cumcount().to_numpy()
 
-    missing = [a for a in uniques if a not in account_to_idx]
-    if missing:
-        raise KeyError(
-            f"{len(missing)} account_id không có trong account_to_idx (vd. {missing[:3]}) — "
-            "build_account_graph phải bao gồm mọi account_id làm node."
-        )
-
     x_all = torch.as_tensor(
         window[list(feature_columns)].to_numpy(dtype=np.float32), device=device)
-    node_idx_by_account = torch.as_tensor(
-        np.array([account_to_idx[a] for a in uniques], dtype=np.int64), device=device)
     codes_t = torch.as_tensor(codes.astype(np.int64), device=device)
-
-    # Graph Encoder chỉ phụ thuộc đồ thị của cửa sổ -> chạy một lần.
-    g_all = model.encode_graph(node_features, edge_index)
+    if graphs is not None:
+        # Mỗi dòng một embedding đồ thị (của khối nó) -> chỉ số nút chính là chỉ số dòng.
+        g_all = encode_rows(model, graphs, len(window), device)
+        node_idx_by_row = torch.arange(len(window), device=device)
+    else:
+        missing = [a for a in uniques if a not in account_to_idx]
+        if missing:
+            raise KeyError(
+                f"{len(missing)} account_id không có trong account_to_idx (vd. {missing[:3]}) — "
+                "build_account_graph phải bao gồm mọi account_id làm node."
+            )
+        node_idx_by_account = torch.as_tensor(
+            np.array([account_to_idx[a] for a in uniques], dtype=np.int64), device=device)
+        # Graph Encoder chỉ phụ thuộc đồ thị của cửa sổ -> chạy một lần.
+        g_all = model.encode_graph(node_features, edge_index)
     h_state, m_state = model.behavior_memory.init_state(len(uniques), device=device)
     if state_store is not None:
         h_state, m_state = state_store.load(uniques, h_state, m_state)
@@ -497,9 +509,10 @@ def run_encoder_over_window(
         rows = torch.as_tensor(
             np.flatnonzero(position == step), dtype=torch.long, device=device)
         acc = codes_t[rows]
+        node_index = node_idx_by_row[rows] if graphs is not None else node_idx_by_account[acc]
         out = model(
             x_all[rows], h_state[acc], m_state[acc],
-            node_features, edge_index, node_idx_by_account[acc], g_all=g_all,
+            node_features, edge_index, node_index, g_all=g_all,
         )
         # index_copy KHÔNG tại chỗ: giữ đúng đồ thị tính đạo hàm qua các bước
         h_state = h_state.index_copy(0, acc, out["h_t"])
@@ -606,22 +619,31 @@ def train_on_window(
     feature_columns: Sequence[str] = FEATURE_COLUMNS,
     online_store: BehaviorStateStore | None = None,
     target_store: BehaviorStateStore | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> dict[str, float]:
-    node_features, edge_index, account_to_idx = build_account_graph(
-        window, list(feature_columns), use_graph=use_graph)
-    node_features, edge_index = node_features.to(device), edge_index.to(device)
+    graphs = None
+    if graph_buffer is not None:
+        # Đồ thị quá khứ (2B1): dùng chung cho mạng online và EMA, rồi mới nạp
+        # cửa sổ này vào bộ đệm cho các cửa sổ sau.
+        graphs = graph_buffer.window_graphs(window)
+        graph_buffer.append(window)
+        node_features = edge_index = account_to_idx = None
+    else:
+        node_features, edge_index, account_to_idx = build_account_graph(
+            window, list(feature_columns), use_graph=use_graph)
+        node_features, edge_index = node_features.to(device), edge_index.to(device)
 
     # Online và target network có trọng số KHÁC nhau nên trạng thái của chúng
     # cũng khác — phải dùng hai store riêng, nếu dùng chung thì cái sau ghi đè
     # cái trước và cả hai đều nhận trạng thái sai.
     online_out = run_encoder_over_window(
         model, window, node_features, edge_index, account_to_idx, device,
-        feature_columns=feature_columns, state_store=online_store)
+        feature_columns=feature_columns, state_store=online_store, graphs=graphs)
 
     with torch.no_grad():
         target_out = run_encoder_over_window(
             target.target_encoder, window, node_features, edge_index, account_to_idx, device,
-            feature_columns=feature_columns, state_store=target_store,
+            feature_columns=feature_columns, state_store=target_store, graphs=graphs,
         )
 
     pred_src, pred_tgt = build_prediction_pairs(window)
@@ -715,8 +737,11 @@ def evaluate_auprc(
     use_graph: bool = True, batch_size: int = 8192,
     feature_columns: Sequence[str] = FEATURE_COLUMNS,
     state_store: BehaviorStateStore | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> float | None:
     """AUPRC trên tập val, chấm THEO LÔ cùng kích thước cửa sổ huấn luyện.
+
+    `graph_buffer` (đồ thị quá khứ) tiếp tục từ cuối tập train, giống state_store.
 
     Trước đây hàm này chấm cả tập trong MỘT lô. Hai vấn đề:
 
@@ -740,12 +765,19 @@ def evaluate_auprc(
     chunk_scores: list[np.ndarray] = []
     for start, stop in eval_chunk_bounds(len(df_sorted), batch_size):
         window = df_sorted.iloc[start:stop].reset_index(drop=True)
-        node_features, edge_index, account_to_idx = build_account_graph(
-            window, list(feature_columns), use_graph=use_graph)
-        out = run_encoder_over_window(
-            model, window, node_features.to(device), edge_index.to(device),
-            account_to_idx, device, feature_columns=feature_columns,
-            state_store=state_store)
+        if graph_buffer is not None:
+            graphs = graph_buffer.window_graphs(window)
+            graph_buffer.append(window)
+            out = run_encoder_over_window(
+                model, window, None, None, None, device, feature_columns=feature_columns,
+                state_store=state_store, graphs=graphs)
+        else:
+            node_features, edge_index, account_to_idx = build_account_graph(
+                window, list(feature_columns), use_graph=use_graph)
+            out = run_encoder_over_window(
+                model, window, node_features.to(device), edge_index.to(device),
+                account_to_idx, device, feature_columns=feature_columns,
+                state_store=state_store)
         chunk_scores.append(risk_engine(out["e"]).cpu().numpy())
 
     scores = np.concatenate(chunk_scores) if chunk_scores else np.empty(0)
@@ -895,6 +927,12 @@ def train(
     stop_after: int | None = None,
     arch: str = "v1",
     scenarios: Sequence[str] | None = None,
+    graph: str = "window",
+    graph_lookback_hours: float = DEFAULT_LOOKBACK_HOURS,
+    graph_block: int = DEFAULT_BLOCK,
+    graph_arch: str = "sage",
+    graph_fanout: int = DEFAULT_FANOUT,
+    graph_layers: int | None = None,
 ) -> None:
     """Huấn luyện DRRE.
 
@@ -913,9 +951,27 @@ def train(
         scenarios: mô-đun đặc trưng kịch bản (src/data/scenarios) được gắn thêm, vd.
             ["mule_chain", "cross_bank_fx", "cycle"]. Khi có, bộ đặc trưng gốc bỏ
             DROPPED_BASE_FEATURES — đúng bộ đã chốt ở R1.
+        graph: "window" (đồ thị cả cửa sổ, nhìn trước tối đa một cửa sổ) hoặc "past"
+            (Giai đoạn 2B1: mỗi khối `graph_block` dòng chỉ thấy cạnh trong
+            `graph_lookback_hours` giờ TRƯỚC nó, src/drre/past_graph.py). "past" cần
+            carry_state vì bộ đệm cạnh chỉ đúng khi cửa sổ chạy theo thứ tự thời gian.
+        graph_arch: "sage" (GraphSAGE một chiều, đọc theo người gửi) hoặc "edge" (Giai đoạn
+            2B2–2B5: hai chiều, đặc trưng cạnh, đọc theo cạnh; cần arch v2 và graph "past").
+        graph_fanout: với "edge", số cạnh vào/ra gần nhất mỗi nút được truyền tin.
+        graph_layers: số lớp truyền tin (None = theo config, mặc định 2).
     """
     if arch not in ARCHES:
         raise ValueError(f"arch phải thuộc {ARCHES}, nhận {arch!r}")
+    if graph not in GRAPH_MODES:
+        raise ValueError(f"graph phải thuộc {GRAPH_MODES}, nhận {graph!r}")
+    if graph == "past" and not carry_state:
+        raise ValueError("graph='past' cần carry_state=True (cửa sổ phải theo thứ tự thời gian)")
+    if graph == "past" and not use_graph:
+        raise ValueError("graph='past' mâu thuẫn với use_graph=False")
+    if graph_arch not in GRAPH_ARCHES:
+        raise ValueError(f"graph_arch phải thuộc {GRAPH_ARCHES}, nhận {graph_arch!r}")
+    if graph_arch == "edge" and (arch != "v2" or graph != "past"):
+        raise ValueError("graph_arch='edge' cần arch='v2' và graph='past'")
     scenarios = list(scenarios or [])
     if selection not in SELECTION_MODES:
         raise ValueError(f"selection phải thuộc {SELECTION_MODES}, nhận {selection!r}")
@@ -944,7 +1000,7 @@ def train(
     hidden_dim = drre_cfg.get("behavior_memory", {}).get("hidden_dim", 64)
     num_slots = drre_cfg.get("behavior_memory", {}).get("num_slots", 4)
     graph_hidden_dim = drre_cfg.get("graph_encoder", {}).get("hidden_dim", 64)
-    graph_num_layers = drre_cfg.get("graph_encoder", {}).get("num_layers", 2)
+    graph_num_layers = graph_layers or drre_cfg.get("graph_encoder", {}).get("num_layers", 2)
     embedding_dim = drre_cfg.get("fusion", {}).get("embedding_dim", 128)
     ema_decay = drre_cfg.get("loss", {}).get("ema_decay", 0.996)
     lambda_contrast = drre_cfg.get("loss", {}).get("lambda_contrast", 0.5)
@@ -1008,6 +1064,11 @@ def train(
     )
     if arch == "v2":
         model_config.update(arch="v2", feature_columns=list(feature_cols), risk_hidden=RISK_HIDDEN)
+    if graph == "past":
+        model_config.update(graph_mode="past", graph_lookback_hours=float(graph_lookback_hours),
+                            graph_block=int(graph_block))
+    if graph_arch == "edge":
+        model_config.update(graph_arch="edge", graph_fanout=int(graph_fanout))
     model = build_drre(model_config).to(device)
     risk_engine = build_risk_engine(model_config).to(device)
     if arch == "v2":
@@ -1160,6 +1221,10 @@ def train(
         if online_store is not None:
             online_store.reset()
             target_store.reset()
+        # Bộ đệm cạnh làm mới mỗi epoch, giống trạng thái Behavior Memory.
+        graph_buffer = (PastGraphBuffer(feature_cols, graph_lookback_hours, graph_block,
+                                        graph_num_layers, arch=graph_arch, fanout=graph_fanout)
+                        if graph == "past" else None)
 
         epoch_stats = {"loss": 0.0, "l_pred": 0.0, "l_contrast": 0.0, "l_bce": 0.0}
         n_windows_no_pred_pairs = 0
@@ -1177,6 +1242,7 @@ def train(
                 model, risk_engine, target, loss_fn, optimizer, window, device, num_negatives, rng,
                 use_graph=use_graph, feature_columns=feature_cols,
                 online_store=online_store, target_store=target_store,
+                graph_buffer=graph_buffer,
             )
             for k in epoch_stats:
                 epoch_stats[k] += stats[k]
@@ -1232,7 +1298,7 @@ def train(
                 feature_columns=feature_cols,
                 # Tập val nằm SAU tập train theo thời gian, nên nó được phép
                 # tiếp tục trạng thái cuối của train — đúng như hệ thống thật.
-                state_store=online_store)
+                state_store=online_store, graph_buffer=graph_buffer)
             if auprc is not None:
                 epoch_record["val_auprc"] = auprc
                 logger.info("Epoch %d | Val AUPRC = %.4f", epoch, auprc)
@@ -1423,6 +1489,22 @@ def main() -> None:
     parser.add_argument("--scenarios", default="", metavar="MO_DUN1,MO_DUN2",
                         help="Gắn đặc trưng kịch bản, vd. mule_chain,cross_bank_fx,cycle (bộ đã "
                              "chốt ở R1). Cần chạy scripts/build_scenarios.py trước.")
+    parser.add_argument("--graph", default="window", choices=list(GRAPH_MODES),
+                        help="window = đồ thị cả cửa sổ (cũ, nhìn trước trong cửa sổ); past = "
+                             "Giai đoạn 2B1, mỗi khối chỉ thấy cạnh quá khứ. 'past' cần --carry-state.")
+    parser.add_argument("--graph-lookback-hours", type=float, default=DEFAULT_LOOKBACK_HOURS,
+                        help="Đồ thị quá khứ: nhìn lại bấy nhiêu giờ (mặc định %(default)s).")
+    parser.add_argument("--graph-block", type=int, default=DEFAULT_BLOCK,
+                        help="Đồ thị quá khứ: số dòng mỗi khối dùng chung một đồ thị "
+                             "(mặc định %(default)s).")
+    parser.add_argument("--graph-arch", default="sage", choices=list(GRAPH_ARCHES),
+                        help="sage = GraphSAGE một chiều (cũ); edge = Giai đoạn 2B2–2B5: hai chiều, "
+                             "đặc trưng cạnh, đọc theo cạnh (cần --arch v2 --graph past).")
+    parser.add_argument("--graph-fanout", type=int, default=DEFAULT_FANOUT,
+                        help="graph-arch edge: số cạnh vào/ra gần nhất mỗi nút (mặc định "
+                             "%(default)s).")
+    parser.add_argument("--graph-layers", type=int, default=None,
+                        help="Số lớp truyền tin (mặc định theo config).")
     parser.add_argument("--disable-branch", action="append", default=[],
                          choices=["transaction", "behavior", "graph"],
                          help="Tắt một nhánh để làm ablation, vd. --disable-branch behavior")
@@ -1446,6 +1528,9 @@ def main() -> None:
         carry_state=args.carry_state, state_cache=args.state_cache,
         lambda_bce=args.lambda_bce, resume=args.resume, stop_after=args.stop_after,
         arch=args.arch, scenarios=[s.strip() for s in args.scenarios.split(",") if s.strip()],
+        graph=args.graph, graph_lookback_hours=args.graph_lookback_hours,
+        graph_block=args.graph_block, graph_arch=args.graph_arch,
+        graph_fanout=args.graph_fanout, graph_layers=args.graph_layers,
     )
 
 

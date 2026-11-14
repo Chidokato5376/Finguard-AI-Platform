@@ -14,6 +14,12 @@ Graph Encoder (nhánh đồ thị được sửa riêng ở Giai đoạn 2B):
   Lỗi 4  δ_t tính ra nhưng không vào điểm.
          -> δ_t và |q_t − h̃_t| đi vào nhánh thói quen, δ_t vào cả bộ hợp nhất.
 
+Nhánh đồ thị "edge" (Giai đoạn 2B2–2B5, `graph_arch="edge"`, chỉ dùng với đồ thị quá
+khứ src/drre/past_graph.py): truyền tin HAI CHIỀU với hai bộ trọng số, cạnh mang đặc
+trưng (số tiền, kênh, độ cũ), nút có hồ sơ cả phía gửi lẫn phía nhận, và đọc ra THEO
+CẠNH: φ₃ nhận [g_người gửi ‖ g_người nhận]; cùng x_t (φ₁), h̃_t và δ_t (φ₂) trong bộ hợp
+nhất, đó chính là MLP([x_t ‖ g_gửi ‖ g_nhận ‖ h̃_gửi ‖ δ_t]) của lộ trình.
+
 Giao diện giống hệt DRRE v1 (cùng chữ ký forward, cùng các khóa đầu ra, cùng
 thuộc tính behavior_memory / attention / graph_encoder / fusion), nên vòng huấn
 luyện, BehaviorStateStore và mọi đường chấm điểm dùng lại được nguyên vẹn.
@@ -65,6 +71,9 @@ BRANCH_OVERRIDES = {
     "fo_amt_dev_24h": "transaction", "cs_cash_ratio_ctr": "transaction",
 }
 BRANCHES = ("transaction", "behavior", "network")
+#: Cột thô của giao dịch đi vào đặc trưng cạnh (ngoài kênh và độ cũ) ở graph_arch="edge".
+EDGE_COLUMNS = ("amount_norm",)
+GRAPH_ARCHES = ("sage", "edge")
 
 
 def branch_of(column: str) -> str:
@@ -101,6 +110,51 @@ class MLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
+
+
+def _mean_into(values: torch.Tensor, index: torch.Tensor, n: int) -> torch.Tensor:
+    """Trung bình các hàng `values` theo nút đích `index` (nút không có cạnh -> 0)."""
+    total = values.new_zeros((n, values.shape[-1])).index_add(0, index, values)
+    count = values.new_zeros(n).index_add(0, index, values.new_ones(len(index)))
+    return total / count.clamp_min(1.0).unsqueeze(-1)
+
+
+class BiEdgeLayer(nn.Module):
+    """Một lớp truyền tin hai chiều có đặc trưng cạnh (kiểu GINE, gộp trung bình).
+
+    Mỗi cạnh u→v (u trả tiền cho v) gửi hai thông điệp với hai bộ trọng số riêng:
+    v nhận ψ_vào([h_u ‖ e]) ("ai đã trả cho tôi"), u nhận ψ_ra([h_v ‖ e]) ("tôi đã trả cho ai").
+    """
+
+    def __init__(self, dim: int, edge_dim: int) -> None:
+        super().__init__()
+        self.msg_in = nn.Linear(dim + edge_dim, dim)
+        self.msg_out = nn.Linear(dim + edge_dim, dim)
+        self.self_lin = nn.Linear(dim, dim)
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, h: torch.Tensor, edge_index: torch.Tensor, e: torch.Tensor) -> torch.Tensor:
+        src, dst = edge_index[0], edge_index[1]
+        n = h.shape[0]
+        agg_in = _mean_into(torch.relu(self.msg_in(torch.cat([h[src], e], dim=-1))), dst, n)
+        agg_out = _mean_into(torch.relu(self.msg_out(torch.cat([h[dst], e], dim=-1))), src, n)
+        return h + torch.relu(self.norm(self.self_lin(h) + agg_in + agg_out))
+
+
+class BiEdgeGraphEncoder(nn.Module):
+    """Chiếu nút vào `hidden` rồi `num_layers` lớp BiEdgeLayer."""
+
+    def __init__(self, node_dim: int, edge_dim: int, hidden: int, num_layers: int) -> None:
+        super().__init__()
+        self.num_layers = num_layers
+        self.input = nn.Linear(node_dim, hidden)
+        self.layers = nn.ModuleList(BiEdgeLayer(hidden, edge_dim) for _ in range(num_layers))
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor, e: torch.Tensor) -> torch.Tensor:
+        h = torch.relu(self.input(x))
+        for layer in self.layers:
+            h = layer(h, edge_index, e)
+        return h
 
 
 class ConcatFusion(nn.Module):
@@ -157,9 +211,13 @@ class DRREv2(nn.Module):
         n_channels: int = 16,
         channel_dim: int = 8,
         branch_dim: int = 64,
+        graph_arch: str = "sage",
     ) -> None:
         super().__init__()
+        if graph_arch not in GRAPH_ARCHES:
+            raise ValueError(f"graph_arch phải thuộc {GRAPH_ARCHES}, nhận {graph_arch!r}")
         feature_columns = list(feature_columns)
+        self.graph_arch = graph_arch
         if len(feature_columns) != input_dim:
             raise ValueError(f"input_dim={input_dim} nhưng có {len(feature_columns)} cột.")
         self.embedding_dim = embedding_dim
@@ -182,11 +240,24 @@ class DRREv2(nn.Module):
         behavior_in = len(groups["behavior"]) + ch
         self.behavior_memory = BehaviorMemory(behavior_in, hidden_dim, num_slots)
         self.attention = ContextAwareAttention(behavior_in, key_dim=hidden_dim)
-        self.graph_encoder = GraphRelationshipEncoder(
-            len(groups["network"]), graph_hidden_dim, graph_num_layers)
+        if graph_arch == "edge":
+            # Hồ sơ phía nhận: cột mạng lưới + các cột mô tả giao dịch (số tiền).
+            edge_idx = [feature_columns.index(c) for c in EDGE_COLUMNS if c in feature_columns]
+            in_idx = list(groups["network"]) + [i for i in edge_idx if i not in groups["network"]]
+            self.register_buffer("idx_in", torch.tensor(in_idx, dtype=torch.long), persistent=False)
+            self.register_buffer("idx_edge", torch.tensor(edge_idx, dtype=torch.long),
+                                 persistent=False)
+            node_dim = len(groups["network"]) + len(in_idx) + 2
+            edge_dim = len(edge_idx) + ch + 1
+            self.graph_encoder = BiEdgeGraphEncoder(node_dim, edge_dim, graph_hidden_dim,
+                                                    graph_num_layers)
+            g_dim = 2 * graph_hidden_dim  # đọc theo cạnh: người gửi ‖ người nhận
+        else:
+            self.graph_encoder = GraphRelationshipEncoder(
+                len(groups["network"]), graph_hidden_dim, graph_num_layers)
+            g_dim = graph_hidden_dim
         # Nhánh thói quen nhận h̃_t, |q_t − h̃_t| (lệch so với thói quen, theo từng chiều) và δ_t.
-        self.fusion = ConcatFusion(tx_dim, 2 * hidden_dim + 1, graph_hidden_dim, embedding_dim,
-                                   branch_dim)
+        self.fusion = ConcatFusion(tx_dim, 2 * hidden_dim + 1, g_dim, embedding_dim, branch_dim)
         self.predictor = nn.Linear(embedding_dim, embedding_dim)
 
     @torch.no_grad()
@@ -222,9 +293,29 @@ class DRREv2(nn.Module):
         sau khi lấy trung bình cho cùng kết quả. Nút chỉ-nhận có vector 0 thô và
         được giữ ở 0 (nhánh đồ thị được làm lại ở Giai đoạn 2B).
         """
+        if self.graph_arch == "edge":
+            raise RuntimeError("graph_arch='edge' chỉ chạy với đồ thị quá khứ (encode_block)")
         only_receiver = (node_features == 0).all(dim=-1, keepdim=True)
         z = self._normalize(node_features)[:, self.idx_network].masked_fill(only_receiver, 0.0)
         return self.graph_encoder(z, edge_index)
+
+    def encode_block(self, g, device: torch.device) -> torch.Tensor:
+        """[g_người gửi ‖ g_người nhận] cho từng dòng của một khối (graph_arch="edge").
+
+        `g` là past_graph.BlockGraph dựng với arch="edge"."""
+        counts = g.counts.to(device)
+        has_out, has_in = counts[:, :1] > 0, counts[:, 1:] > 0
+        z_out = self._normalize(g.node_features.to(device))[:, self.idx_network] * has_out
+        z_in = self._normalize(g.in_features.to(device))[:, self.idx_in] * has_in
+        nodes = torch.cat([z_out, z_in, torch.log1p(counts)], dim=-1)
+        edge_x = g.edge_x.to(device)
+        parts = [self._normalize(edge_x)[:, self.idx_edge]]
+        if self.channel_embedding is not None:
+            code = edge_x[:, self.channel_index].round().long().clamp(0, self.n_channels - 1)
+            parts.append(self.channel_embedding(code))
+        parts.append(g.edge_age.to(device).unsqueeze(-1))
+        h = self.graph_encoder(nodes, g.edge_index.to(device), torch.cat(parts, dim=-1))
+        return torch.cat([h[g.row_node.to(device)], h[g.row_cp_node.to(device)]], dim=-1)
 
     def forward(
         self,

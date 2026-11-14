@@ -32,11 +32,13 @@ import pandas as pd
 import torch
 
 from src.dashboard.graph_utils import build_account_graph
+from src.drre.past_graph import PastGraphBuffer
 from src.drre.train import BehaviorStateStore, eval_chunk_bounds, run_encoder_over_window
 
 logger = logging.getLogger(__name__)
 
-CACHE_FORMAT = 1
+#: 2: thêm bộ đệm đồ thị quá khứ (Giai đoạn 2B1) vào tệp làm nóng.
+CACHE_FORMAT = 2
 #: Cửa sổ giữa hai lần lưu. 100 cửa sổ ≈ 8 phút trên HI-Medium, mỗi lần ghi ≈ 3 GB.
 DEFAULT_CHECKPOINT_EVERY = 100
 #: Đúng kích thước cửa sổ đã dùng để huấn luyện và chấm val ở scripts/train_aml_medium.sh.
@@ -62,9 +64,17 @@ def fingerprint(checkpoint_path: str | Path, data_paths: Sequence[str | Path], w
 
 
 def _scan_window(
-    model, df: pd.DataFrame, start: int, stop: int, store: BehaviorStateStore, device: torch.device
+    model, df: pd.DataFrame, start: int, stop: int, store: BehaviorStateStore, device: torch.device,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> torch.Tensor:
     window = df.iloc[start:stop].reset_index(drop=True)
+    if graph_buffer is not None:
+        graphs = graph_buffer.window_graphs(window)
+        graph_buffer.append(window)
+        out = run_encoder_over_window(
+            model, window, None, None, None, device,
+            feature_columns=list(model.feature_columns), state_store=store, graphs=graphs)
+        return out["e"]
     node_features, edge_index, account_to_idx = build_account_graph(
         window, list(model.feature_columns), use_graph=getattr(model, "use_graph", True))
     out = run_encoder_over_window(
@@ -85,8 +95,12 @@ def warm_up_store(
     checkpoint_every: int = DEFAULT_CHECKPOINT_EVERY,
     on_window: OnWindow | None = None,
     device: torch.device | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> None:
     """Quét `stream` (đã sắp theo thời gian) để nạp trạng thái vào `store`.
+
+    Mô hình dùng đồ thị quá khứ cần `graph_buffer` (src.drre.past_graph.make_buffer);
+    bộ đệm được lưu cùng tệp làm nóng và phải được truyền tiếp cho score_split.
 
     `on_window(start, stop, embedding, logit)` nhận kết quả từng cửa sổ, để
     xuất embedding. Hàm gọi lại phải ghi xong trước khi hàm này lưu tiến độ:
@@ -101,6 +115,8 @@ def warm_up_store(
         cached = torch.load(cache_path, map_location="cpu", weights_only=False)
         if cached.get("id") == cache_id:
             store.load_state_dict(cached["store"])
+            if graph_buffer is not None:
+                graph_buffer.load_state_dict(cached["graph"])
             next_window = int(cached["next_window"])
             logger.info("Chạy tiếp quét làm nóng từ cửa sổ %d/%d (%s)",
                         next_window, len(bounds), cache_path)
@@ -111,12 +127,13 @@ def warm_up_store(
         if cache_path is None:
             return
         tmp = cache_path.with_suffix(cache_path.suffix + ".tmp")
-        torch.save({"id": cache_id, "next_window": done, "store": store.state_dict()}, tmp)
+        torch.save({"id": cache_id, "next_window": done, "store": store.state_dict(),
+                    "graph": None if graph_buffer is None else graph_buffer.state_dict()}, tmp)
         os.replace(tmp, cache_path)
 
     for i in range(next_window, len(bounds)):
         start, stop = bounds[i]
-        embedding = _scan_window(model, stream, start, stop, store, device)
+        embedding = _scan_window(model, stream, start, stop, store, device, graph_buffer)
         if on_window is not None:
             on_window(start, stop, embedding, risk_engine.logits(embedding))
         done = i + 1
@@ -138,12 +155,13 @@ def score_split(
     window: int = DEFAULT_WINDOW,
     on_window: OnWindow | None = None,
     device: torch.device | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> np.ndarray:
     """Điểm 0–100 cho `df` (đã sắp theo thời gian), tiếp tục trạng thái trong `store`."""
     device = device or torch.device("cpu")
     parts = []
     for start, stop in eval_chunk_bounds(len(df), window):
-        embedding = _scan_window(model, df, start, stop, store, device)
+        embedding = _scan_window(model, df, start, stop, store, device, graph_buffer)
         if on_window is not None:
             on_window(start, stop, embedding, risk_engine.logits(embedding))
         parts.append(risk_engine(embedding).cpu().numpy())

@@ -106,11 +106,23 @@ def build_drre(model_config: dict) -> nn.Module:
     """
     config = dict(model_config)
     config.pop("risk_hidden", None)
+    # Cách dựng đồ thị (Giai đoạn 2B1, src/drre/past_graph.py) không phải tham số
+    # của mạng mà là thuộc tính đi kèm; checkpoint cũ không có khóa -> "window".
+    graph = {
+        "graph_mode": config.pop("graph_mode", "window"),
+        "graph_lookback_hours": config.pop("graph_lookback_hours", None),
+        "graph_block": config.pop("graph_block", None),
+        "graph_fanout": config.pop("graph_fanout", None),
+    }
     if config.pop("arch", "v1") == "v2":
         from src.drre.model_v2 import DRREv2
 
-        return DRREv2(**config)
-    return DRRE(**config)
+        model = DRREv2(**config)
+    else:
+        model = DRRE(**config)
+    for key, value in graph.items():
+        setattr(model, key, value)
+    return model
 
 
 def main() -> None:

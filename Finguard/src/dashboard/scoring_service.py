@@ -187,21 +187,37 @@ def _score_with_drre(df: pd.DataFrame, drre, risk_engine) -> pd.DataFrame:
             "Chạy src/data/preprocessing.py trước."
         )
 
-    node_features, edge_index, account_to_idx = build_account_graph(
-        df, feature_cols, use_graph=getattr(drre, "use_graph", True)
-    )
+    from src.drre.past_graph import encode_rows, make_buffer, time_column
+
     x_t = torch.tensor(df[feature_cols].to_numpy(dtype=np.float32))
     batch_size = len(df)
+    graph_buffer = make_buffer(drre)
+    g_all = None
+    if graph_buffer is not None:
+        # Đồ thị quá khứ (2B1): chỉ các giao dịch TRƯỚC trong chính lô này, theo thời gian.
+        order = np.argsort(df[time_column(df)].to_numpy(), kind="stable")
+        ordered = df.iloc[order].reset_index(drop=True)
+        with torch.no_grad():
+            g_sorted = encode_rows(drre, graph_buffer.window_graphs(ordered), batch_size,
+                                   x_t.device)
+        g_all = torch.empty_like(g_sorted)
+        g_all[torch.as_tensor(order)] = g_sorted
+        node_features = edge_index = None
+        node_index = torch.arange(batch_size)
+    else:
+        node_features, edge_index, account_to_idx = build_account_graph(
+            df, feature_cols, use_graph=getattr(drre, "use_graph", True)
+        )
+        node_index = torch.tensor([account_to_idx[a] for a in df["account_id"]], dtype=torch.long)
 
     # Cold-start tuyệt đối mỗi lần load Dashboard — xem ghi chú tương tự
     # trong lịch sử phát triển src/dashboard (inference.py, nay đã hợp nhất
     # vào đây). Hệ thống sản xuất thật cần lưu/khôi phục (h_prev, m_prev)
     # theo account_id giữa các batch.
     h_prev, m_prev = drre.behavior_memory.init_state(batch_size, device=x_t.device)
-    node_index = torch.tensor([account_to_idx[a] for a in df["account_id"]], dtype=torch.long)
 
     with torch.no_grad():
-        out = drre(x_t, h_prev, m_prev, node_features, edge_index, node_index)
+        out = drre(x_t, h_prev, m_prev, node_features, edge_index, node_index, g_all=g_all)
         scores = risk_engine(out["e_t"])
 
     result = df.copy()
