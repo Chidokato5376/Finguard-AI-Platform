@@ -81,3 +81,23 @@ cùng nhãn, cùng thứ tự.
 3. Cổng 1: R6 so với GBDT 28 cột, 3 seed, P1–P4; cài tập giữ lại 15% cuối train nếu cần chọn
    ngưỡng mà không dùng val.
 4. Test một lần (R10).
+
+## 6. Kết quả Giai đoạn 2C (lỗi 6) — 14–15/11
+
+| Bậc | Thay đổi so với R5 | AUPRC tập giữ lại (15% cuối train) | AUPRC val | Bắt@2000 val | Embedding: số chiều hiệu dụng |
+|---|---|---|---|---|---|
+| R5 | — | 0,348 | **0,355** | **411** | 7,7 (eff rank 10,3) |
+| R6a | Đầu chấm điểm học lại trên embedding đóng băng (mọi vụ cùng lúc) | 0,353 | 0,333 | 375 | 7,7 |
+| R6b | Thêm số hạng chống sụp embedding (λ = 0,1) khi huấn luyện | 0,342 | 0,349 | 406 | **10,5 (eff rank 14,1)** |
+| R6 | R6b + đầu chấm điểm học lại | **0,361** | 0,343 | 380 | 10,5 |
+
+- Đầu chấm điểm được chọn hàm mất mát và số epoch trên tập giữ lại (không nhìn val): BCE
+  trọng số đầy đủ thắng ở cả R6a và R6 (√ và focal thấp hơn).
+- Số hạng chống sụp làm embedding rộng hơn ~37% nhưng vẫn chỉ ~11/128 chiều; đường val theo
+  epoch của R6b trùng R5 (0,249/0,312/0,348/0,366 so với 0,247/0,307/0,354/0,372).
+- **Kết luận: 2C không cải thiện DRRE.** Mọi hiệu số với R5 (≤ 0,022) nhỏ hơn nhiều độ rộng
+  KTC đo được ở các phép so khác (~±0,03) và trái dấu giữa tập giữ lại và val — tức là nhiễu.
+  Cách huấn luyện không phải điểm nghẽn; khoảng cách với GBDT 28 cột (−0,22) nằm ở lượng thông
+  tin/kiến trúc, không ở cách học đầu chấm điểm hay độ rộng embedding.
+- Cấu hình DRRE mang vào Cổng 1: **R5** (đơn giản nhất trong nhóm tốt nhất). Mã 2C giữ lại
+  (`--lambda-vc`, `--accumulate`, `scripts/refit_head.py`) để dùng khi cần.

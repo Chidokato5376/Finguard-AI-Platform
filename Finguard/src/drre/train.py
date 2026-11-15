@@ -620,7 +620,20 @@ def train_on_window(
     online_store: BehaviorStateStore | None = None,
     target_store: BehaviorStateStore | None = None,
     graph_buffer: PastGraphBuffer | None = None,
+    lambda_vc: float = 0.0,
+    accumulate: int = 1,
+    window_index: int = 1,
+    last_window: bool = True,
 ) -> dict[str, float]:
+    """Một bước huấn luyện trên một cửa sổ.
+
+    Giai đoạn 2C (lỗi 6):
+      lambda_vc  > 0: thêm số hạng chống sụp embedding (variance_covariance_loss) — embedding
+                 R3–R5 chỉ dùng ~6–8/128 chiều.
+      accumulate > 1: cộng dồn gradient `accumulate` cửa sổ rồi mới cập nhật, để mỗi lần cập
+                 nhật thấy nhiều vụ rửa tiền hơn (~26 vụ/cửa sổ HI-Small). `window_index` (đếm
+                 từ 1) và `last_window` quyết định khi nào xóa / áp gradient.
+    """
     graphs = None
     if graph_buffer is not None:
         # Đồ thị quá khứ (2B1): dùng chung cho mạng online và EMA, rồi mới nạp
@@ -692,16 +705,25 @@ def train_on_window(
         bce_logits=bce_logits, bce_labels=bce_labels,
     )
 
-    optimizer.zero_grad()
-    losses["loss"].backward()
-    torch.nn.utils.clip_grad_norm_(
-        list(model.parameters()) + list(risk_engine.parameters()), max_norm=5.0
-    )
-    optimizer.step()
-    target.update(model)
+    total = losses["loss"]
+    l_vc = torch.tensor(0.0)
+    if lambda_vc > 0:
+        l_vc = variance_covariance_loss(online_out["e"])
+        total = total + lambda_vc * l_vc
+
+    if (window_index - 1) % accumulate == 0:
+        optimizer.zero_grad()
+    (total / accumulate).backward()
+    if window_index % accumulate == 0 or last_window:
+        torch.nn.utils.clip_grad_norm_(
+            list(model.parameters()) + list(risk_engine.parameters()), max_norm=5.0
+        )
+        optimizer.step()
+        target.update(model)
 
     return {
-        "loss": float(losses["loss"].item()),
+        "loss": float(total.item()),
+        "l_vc": float(l_vc.item()),
         "l_pred": float(losses["l_pred"].item()),
         "l_contrast": float(losses["l_contrast"].item()),
         "l_bce": float(losses["l_bce"].item()),
@@ -709,6 +731,22 @@ def train_on_window(
         "n_contrastive_anchors": len(anchors),
         "n_bce_labels": 0 if bce_labels is None else len(bce_labels),
     }
+
+
+def variance_covariance_loss(e: torch.Tensor, eps: float = 1e-4) -> torch.Tensor:
+    """Số hạng chống sụp kiểu VICReg (Bardes và cộng sự, 2022) trên embedding của cửa sổ.
+
+    phương sai: mỗi chiều phải có độ lệch chuẩn ≥ 1 (hinge); hiệp phương sai: phạt bình
+    phương các phần tử ngoài đường chéo (chia cho số chiều) để các chiều không trùng nhau.
+    """
+    if e.shape[0] < 2:
+        return e.new_zeros(())
+    e = e - e.mean(dim=0)
+    std = torch.sqrt(e.var(dim=0) + eps)
+    variance = torch.relu(1.0 - std).mean()
+    cov = (e.T @ e) / (e.shape[0] - 1)
+    off = cov - torch.diag(torch.diagonal(cov))
+    return variance + off.pow(2).sum() / e.shape[1]
 
 
 # --------------------------------------------------------------------------
@@ -933,6 +971,8 @@ def train(
     graph_arch: str = "sage",
     graph_fanout: int = DEFAULT_FANOUT,
     graph_layers: int | None = None,
+    lambda_vc: float = 0.0,
+    accumulate: int = 1,
 ) -> None:
     """Huấn luyện DRRE.
 
@@ -959,7 +999,11 @@ def train(
             2B2–2B5: hai chiều, đặc trưng cạnh, đọc theo cạnh; cần arch v2 và graph "past").
         graph_fanout: với "edge", số cạnh vào/ra gần nhất mỗi nút được truyền tin.
         graph_layers: số lớp truyền tin (None = theo config, mặc định 2).
+        lambda_vc: trọng số số hạng chống sụp embedding (Giai đoạn 2C; 0 = tắt).
+        accumulate: cộng dồn gradient bấy nhiêu cửa sổ mỗi lần cập nhật (2C; 1 = tắt).
     """
+    if accumulate < 1 or lambda_vc < 0:
+        raise ValueError("accumulate phải >= 1 và lambda_vc >= 0")
     if arch not in ARCHES:
         raise ValueError(f"arch phải thuộc {ARCHES}, nhận {arch!r}")
     if graph not in GRAPH_MODES:
@@ -1142,6 +1186,8 @@ def train(
             # không có hai khóa này và vẫn phải chạy tiếp được.
             **({"arch": arch} if arch != "v1" else {}),
             **({"scenarios": scenarios} if scenarios else {}),
+            **({"lambda_vc": lambda_vc} if lambda_vc else {}),
+            **({"accumulate": accumulate} if accumulate != 1 else {}),
         },
         data={
             "train_file": {**file_fingerprint(train_path), **dataframe_summary(df_train)},
@@ -1226,7 +1272,7 @@ def train(
                                         graph_num_layers, arch=graph_arch, fanout=graph_fanout)
                         if graph == "past" else None)
 
-        epoch_stats = {"loss": 0.0, "l_pred": 0.0, "l_contrast": 0.0, "l_bce": 0.0}
+        epoch_stats = {"loss": 0.0, "l_pred": 0.0, "l_contrast": 0.0, "l_bce": 0.0, "l_vc": 0.0}
         n_windows_no_pred_pairs = 0
         n_windows_no_bce = 0
         model.train()
@@ -1242,7 +1288,8 @@ def train(
                 model, risk_engine, target, loss_fn, optimizer, window, device, num_negatives, rng,
                 use_graph=use_graph, feature_columns=feature_cols,
                 online_store=online_store, target_store=target_store,
-                graph_buffer=graph_buffer,
+                graph_buffer=graph_buffer, lambda_vc=lambda_vc, accumulate=accumulate,
+                window_index=i_window, last_window=i_window == n_windows,
             )
             for k in epoch_stats:
                 epoch_stats[k] += stats[k]
@@ -1253,10 +1300,10 @@ def train(
 
         n = max(1, n_windows)
         logger.info(
-            "Epoch %d/%d | loss=%.4f l_pred=%.4f l_contrast=%.4f l_bce=%.4f | "
+            "Epoch %d/%d | loss=%.4f l_pred=%.4f l_contrast=%.4f l_bce=%.4f l_vc=%.4f | "
             "%d/%d cửa sổ không có cặp L_pred (tăng --batch-size nếu tỷ lệ này cao)",
             epoch, epochs, epoch_stats["loss"] / n, epoch_stats["l_pred"] / n,
-            epoch_stats["l_contrast"] / n, epoch_stats["l_bce"] / n,
+            epoch_stats["l_contrast"] / n, epoch_stats["l_bce"] / n, epoch_stats["l_vc"] / n,
             n_windows_no_pred_pairs, n_windows,
         )
         if online_store is not None:
@@ -1284,6 +1331,7 @@ def train(
             "l_pred": epoch_stats["l_pred"] / n,
             "l_contrast": epoch_stats["l_contrast"] / n,
             "l_bce": epoch_stats["l_bce"] / n,
+            "l_vc": epoch_stats["l_vc"] / n,
             "n_windows": n_windows,
             "n_windows_no_pred_pairs": n_windows_no_pred_pairs,
             "n_windows_no_bce": n_windows_no_bce,
@@ -1505,6 +1553,11 @@ def main() -> None:
                              "%(default)s).")
     parser.add_argument("--graph-layers", type=int, default=None,
                         help="Số lớp truyền tin (mặc định theo config).")
+    parser.add_argument("--lambda-vc", type=float, default=0.0,
+                        help="Giai đoạn 2C: trọng số số hạng chống sụp embedding (phương sai + "
+                             "hiệp phương sai kiểu VICReg). 0 = tắt.")
+    parser.add_argument("--accumulate", type=int, default=1,
+                        help="Giai đoạn 2C: cộng dồn gradient bấy nhiêu cửa sổ mỗi lần cập nhật.")
     parser.add_argument("--disable-branch", action="append", default=[],
                          choices=["transaction", "behavior", "graph"],
                          help="Tắt một nhánh để làm ablation, vd. --disable-branch behavior")
@@ -1531,6 +1584,7 @@ def main() -> None:
         graph=args.graph, graph_lookback_hours=args.graph_lookback_hours,
         graph_block=args.graph_block, graph_arch=args.graph_arch,
         graph_fanout=args.graph_fanout, graph_layers=args.graph_layers,
+        lambda_vc=args.lambda_vc, accumulate=args.accumulate,
     )
 
 
