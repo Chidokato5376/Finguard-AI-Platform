@@ -111,9 +111,11 @@ def main() -> int:
     cache = Path(args.checkpoint).with_suffix(".warm_val.pt")
     fresh = not (folder / "train_e.f16").exists()
     if fresh and cache.exists():
-        raise SystemExit(
-            f"{cache} đã có nhưng chưa có embedding trong {folder}: quét làm nóng đã xong mà không "
-            "ghi embedding. Chạy script này TRƯỚC evaluate.py, hoặc xóa file cache để quét lại.")
+        # Tệp làm nóng (vd. do evaluate.py để lại) đã quét xong mà không ghi embedding: nó chỉ
+        # là bộ đệm, xóa đi để quét lại từ đầu và ghi embedding (mất thêm một lượt quét train).
+        logger.warning("%s có sẵn nhưng chưa có embedding trong %s — xóa để quét lại.",
+                       cache, folder)
+        cache.unlink()
 
     e_train, s_train = _memmaps(folder, "train", len(train), dim, create=fresh)
     store = BehaviorStateStore(

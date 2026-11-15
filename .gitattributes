@@ -1,0 +1,3 @@
+# Script bash phải giữ xuống dòng LF trên mọi máy: với CRLF, Git Bash/Linux báo lỗi
+# "$'\r': command not found".
+*.sh text eol=lf

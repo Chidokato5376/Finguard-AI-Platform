@@ -8,8 +8,7 @@
 #   bash scripts/run_r0.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-PY="$ROOT/.venv/Scripts/python.exe"
+source "$(dirname "$0")/_env.sh"   # đặt ROOT, PY (Windows lẫn Linux)
 mkdir -p logs reports/r0
 LOG=logs/r0.log
 

@@ -14,8 +14,7 @@ set -euo pipefail
 
 NEW="${1:-r3}"
 OLD="${2:-r2}"
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-PY="$ROOT/.venv/Scripts/python.exe"
+source "$(dirname "$0")/_env.sh"   # đặt ROOT, PY (Windows lẫn Linux)
 OUT="reports/$NEW"
 mkdir -p logs "$OUT"
 LOG="logs/${NEW}_eval.log"

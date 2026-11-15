@@ -12,8 +12,7 @@ set -euo pipefail
 KIND="${1:-HI}"
 case "$KIND" in HI|LI) ;; *) echo "Dùng: $0 HI|LI" >&2; exit 2 ;; esac
 TAG="$(echo "$KIND" | tr '[:upper:]' '[:lower:]')"
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-PY="$ROOT/.venv/Scripts/python.exe"
+source "$(dirname "$0")/_env.sh"   # đặt ROOT, PY (Windows lẫn Linux)
 OUT="data/processed_${TAG}_medium"
 mkdir -p "$OUT" logs
 

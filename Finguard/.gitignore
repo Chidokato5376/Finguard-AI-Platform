@@ -48,3 +48,4 @@ reports/r1/*/scores/
 reports/r0/*.done
 reports/leaderboard/*/scores/
 reports/r[0-9]*/*.done
+transfer/
