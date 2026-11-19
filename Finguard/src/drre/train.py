@@ -126,6 +126,13 @@ def scored_mask(df: pd.DataFrame) -> np.ndarray:
     return df["eval_universe"].fillna(True).to_numpy(dtype=bool)
 
 
+#: Cột của tệp đã tiền xử lý KHÔNG dùng khi huấn luyện (chỉ để truy vết/hiển thị).
+TRAIN_UNUSED_COLUMNS = frozenset({
+    "is_synthetic_field", "device_id", "ip_country", "source", "currency", "channel",
+    "laundering_pattern", "is_fx",
+})
+
+
 #: Số tài khoản tối đa được giữ trạng thái Behavior Memory giữa các cửa sổ.
 #: Mỗi tài khoản tốn (hidden_dim + num_slots*hidden_dim) số thực = 320 số với
 #: cấu hình mặc định ≈ 1,3 KB, nên 150.000 tài khoản ≈ 192 MB cho mỗi store.
@@ -349,6 +356,19 @@ def window_bounds(n_rows: int, batch_size: int) -> list[tuple[int, int]]:
     return bounds
 
 
+def _time_sorted_view(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
+    """`df` theo thứ tự thời gian, chỉ số 0..n-1 — KHÔNG sao chép khi `df` đã như vậy.
+
+    Bản sao của cả tập train (22 triệu dòng HI-Medium ≈ 5–6 GB) mỗi epoch từng đẩy tiến trình
+    tới 21 GB RAM (đo 15/11). Thứ tự giống hệt sort_values(kind="stable").
+    """
+    index = df.index
+    if (isinstance(index, pd.RangeIndex) and index.start == 0 and index.step == 1
+            and df[time_col].is_monotonic_increasing):
+        return df
+    return df.sort_values(time_col, kind="stable").reset_index(drop=True)
+
+
 def iter_time_windows(
     df: pd.DataFrame, batch_size: int, time_col: str, rng: random.Random | None = None
 ):
@@ -363,7 +383,7 @@ def iter_time_windows(
     Trả về bộ (số cửa sổ, generator) để vòng lặp vẫn biết tổng số cửa sổ
     trước khi chạy — dùng cho log tiến độ.
     """
-    df_sorted = df.sort_values(time_col, kind="stable").reset_index(drop=True)
+    df_sorted = _time_sorted_view(df, time_col)
     bounds = window_bounds(len(df_sorted), batch_size)
     order = list(range(len(bounds)))
     if rng is not None:
@@ -1064,8 +1084,16 @@ def train(
             f"Không tìm thấy {train_path}. Chạy trước: python -m src.data.preprocessing "
             f"--source {source} --raw-path data/raw/{source}.csv --output {processed_dir}"
         )
-    df_train = pd.read_parquet(train_path)
-    df_val = pd.read_parquet(val_path) if val_path.exists() else None
+    # Bỏ các cột không bao giờ dùng khi huấn luyện: với HI-Medium (22 triệu dòng) các cột chuỗi
+    # và mảng Python này tốn ~7–8 GB RAM, đủ để tiến trình hết bộ nhớ (đo 15/11: 20 GB).
+    def _read(path: Path) -> pd.DataFrame:
+        import pyarrow.parquet as pq
+
+        names = pq.read_schema(path).names
+        return pd.read_parquet(path, columns=[c for c in names if c not in TRAIN_UNUSED_COLUMNS])
+
+    df_train = _read(train_path)
+    df_val = _read(val_path) if val_path.exists() else None
 
     feature_cols = features_for(source, feature_columns, available=df_train.columns)
     if scenarios:
@@ -1086,6 +1114,15 @@ def train(
         raise ValueError(
             f"Không còn đặc trưng nào dùng được cho nguồn '{source}'. Chạy lại preprocessing.py.")
     time_col = "step" if "step" in df_train.columns else "timestamp"
+    # Mô hình, chuẩn hóa và đồ thị đều đọc đặc trưng bằng to_numpy(float32): lưu float32 ngay
+    # từ đầu cho kết quả giống hệt mà tốn nửa bộ nhớ (HI-Medium: ~2,4 GB).
+    for frame in (df_train, df_val):
+        if frame is None:
+            continue
+        for column in feature_cols:
+            if frame[column].dtype == np.float64:
+                frame[column] = frame[column].astype(np.float32)
+    df_train = _time_sorted_view(df_train, time_col)
     logger.info("Đặc trưng đầu vào (%d): %s", len(feature_cols), feature_cols)
 
     # Vũ trụ chấm điểm: bao nhiêu dòng/nhãn dương thực sự đi vào mất mát BCE.

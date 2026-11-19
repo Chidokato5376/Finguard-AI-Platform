@@ -1,0 +1,370 @@
+{
+  "split": "val",
+  "data": "data\\processed_hi_medium",
+  "n_rows": 4603545,
+  "n_pos": 5489,
+  "base_rate": 0.00119234198861964,
+  "bootstrap": 300,
+  "leader": "gbdt_28",
+  "models": {
+    "R7": {
+      "auprc": 0.4216132648710421,
+      "roc_auc": 0.9805355424781632,
+      "caught@500": 435,
+      "caught@1000": 809,
+      "caught@2000": 1423,
+      "f1_best": 0.45817964310637027,
+      "precision_at_f1": 0.5059445178335535,
+      "recall_at_f1": 0.4186554928037894,
+      "alerts_at_f1": 4542,
+      "tp_at_f1": 2298,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.1968503937007874,
+        "CYCLE": 0.42028985507246375,
+        "FAN-IN": 0.4143646408839779,
+        "FAN-OUT": 0.5306122448979592,
+        "GATHER-SCATTER": 0.4635854341736695,
+        "RANDOM": 0.33992094861660077,
+        "SCATTER-GATHER": 0.5299837925445705,
+        "STACK": 0.23703703703703705,
+        "UNSPECIFIED": 0.012607160867372668
+      }
+    },
+    "gbdt_28": {
+      "auprc": 0.5942346549017834,
+      "roc_auc": 0.9880998768626441,
+      "caught@500": 485,
+      "caught@1000": 982,
+      "caught@2000": 1914,
+      "f1_best": 0.6185111552904794,
+      "precision_at_f1": 0.7854137447405329,
+      "recall_at_f1": 0.5101111313536163,
+      "alerts_at_f1": 3565,
+      "tp_at_f1": 2800,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.5433070866141733,
+        "CYCLE": 0.527536231884058,
+        "FAN-IN": 0.5165745856353591,
+        "FAN-OUT": 0.48299319727891155,
+        "GATHER-SCATTER": 0.5266106442577031,
+        "RANDOM": 0.5454545454545454,
+        "SCATTER-GATHER": 0.580226904376013,
+        "STACK": 0.5888888888888889,
+        "UNSPECIFIED": 0.0030257186081694403
+      }
+    },
+    "rf_28": {
+      "auprc": 0.4187994510352976,
+      "roc_auc": 0.9827149468436963,
+      "caught@500": 495,
+      "caught@1000": 950,
+      "caught@2000": 1545,
+      "f1_best": 0.44429604897050645,
+      "precision_at_f1": 0.5709382151029748,
+      "recall_at_f1": 0.36363636363636365,
+      "alerts_at_f1": 3496,
+      "tp_at_f1": 1996,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.4461942257217848,
+        "CYCLE": 0.3652173913043478,
+        "FAN-IN": 0.3729281767955801,
+        "FAN-OUT": 0.5068027210884354,
+        "GATHER-SCATTER": 0.4579831932773109,
+        "RANDOM": 0.3557312252964427,
+        "SCATTER-GATHER": 0.4700162074554295,
+        "STACK": 0.4462962962962963,
+        "UNSPECIFIED": 0.008572869389813415
+      }
+    },
+    "logistic_28": {
+      "auprc": 0.05781925062724125,
+      "roc_auc": 0.9745547240422044,
+      "caught@500": 25,
+      "caught@1000": 45,
+      "caught@2000": 82,
+      "f1_best": 0.15259537210756727,
+      "precision_at_f1": 0.12334306897326444,
+      "recall_at_f1": 0.2000364365093824,
+      "alerts_at_f1": 8902,
+      "tp_at_f1": 1098,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.013123359580052493,
+        "CYCLE": 0.008695652173913044,
+        "FAN-IN": 0.0055248618784530384,
+        "FAN-OUT": 0.013605442176870748,
+        "GATHER-SCATTER": 0.011204481792717087,
+        "RANDOM": 0.007905138339920948,
+        "SCATTER-GATHER": 0.012965964343598054,
+        "STACK": 0.005555555555555556,
+        "UNSPECIFIED": 0.023701462430660614
+      }
+    },
+    "gbdt_20": {
+      "auprc": 0.5155300505285326,
+      "roc_auc": 0.9858395046928723,
+      "caught@500": 480,
+      "caught@1000": 967,
+      "caught@2000": 1859,
+      "f1_best": 0.5471495159555397,
+      "precision_at_f1": 0.7953439888811675,
+      "recall_at_f1": 0.41701584988158136,
+      "alerts_at_f1": 2878,
+      "tp_at_f1": 2289,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.5800524934383202,
+        "CYCLE": 0.4492753623188406,
+        "FAN-IN": 0.5276243093922652,
+        "FAN-OUT": 0.5238095238095238,
+        "GATHER-SCATTER": 0.5532212885154062,
+        "RANDOM": 0.4426877470355731,
+        "SCATTER-GATHER": 0.5380875202593193,
+        "STACK": 0.5462962962962963,
+        "UNSPECIFIED": 0.002017145738779627
+      }
+    },
+    "ngau_nhien": {
+      "auprc": 0.0011976788380596694,
+      "roc_auc": 0.5019284896739238,
+      "caught@500": 0,
+      "caught@1000": 0,
+      "caught@2000": 2,
+      "f1_best": 0.002420961984468261,
+      "precision_at_f1": 0.0012128324539383787,
+      "recall_at_f1": 0.624339588267444,
+      "alerts_at_f1": 2825617,
+      "tp_at_f1": 3427,
+      "typology_recall@2000": {
+        "BIPARTITE": 0.0,
+        "CYCLE": 0.0,
+        "FAN-IN": 0.0027624309392265192,
+        "FAN-OUT": 0.0,
+        "GATHER-SCATTER": 0.0,
+        "RANDOM": 0.0,
+        "SCATTER-GATHER": 0.0,
+        "STACK": 0.001851851851851852,
+        "UNSPECIFIED": 0.0
+      }
+    }
+  },
+  "ranks": {
+    "auprc": {
+      "R7": 3,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "roc_auc": {
+      "R7": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "caught@500": {
+      "R7": 4,
+      "gbdt_28": 2,
+      "rf_28": 1,
+      "logistic_28": 5,
+      "gbdt_20": 3,
+      "ngau_nhien": 6
+    },
+    "caught@1000": {
+      "R7": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "caught@2000": {
+      "R7": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "f1_best": {
+      "R7": 3,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    }
+  },
+  "mean_rank": {
+    "R7": 3.6666666666666665,
+    "gbdt_28": 1.1666666666666667,
+    "rf_28": 3.0,
+    "logistic_28": 5.0,
+    "gbdt_20": 2.1666666666666665,
+    "ngau_nhien": 6.0
+  },
+  "vs_leader": {
+    "R7": {
+      "lo": -0.18506912424156766,
+      "hi": -0.16069581876493763
+    },
+    "rf_28": {
+      "lo": -0.18590169695100475,
+      "hi": -0.16410945678711306
+    },
+    "logistic_28": {
+      "lo": -0.549151361882532,
+      "hi": -0.5229782164296916
+    },
+    "gbdt_20": {
+      "lo": -0.08801092136163456,
+      "hi": -0.06745674773279255
+    },
+    "ngau_nhien": {
+      "lo": -0.6067652074626863,
+      "hi": -0.5782120593039964
+    }
+  },
+  "n_features": {
+    "R7": 28,
+    "gbdt_28": 28,
+    "rf_28": 28,
+    "logistic_28": 28,
+    "gbdt_20": 20,
+    "ngau_nhien": 0
+  },
+  "drre_checkpoints": {
+    "R7": "models/drre_r7_hi_medium.pt"
+  },
+  "classical_feature_columns": [
+    "amount_norm",
+    "channel_encoded",
+    "log_n_prior",
+    "log_gap",
+    "z_amount",
+    "log_amount_ratio",
+    "new_counterparty",
+    "log_n_distinct_cp",
+    "log_n_prior_as_cp",
+    "log_n_distinct_senders",
+    "hour_cos",
+    "dow",
+    "log_amt_out_prior",
+    "log_amt_in_prior",
+    "log_n_in_prior",
+    "passthrough_ratio",
+    "flow_imbalance",
+    "log_cp_amt_in_prior",
+    "mc_forward_ratio_24h",
+    "mc_amt_sim_last_in",
+    "mc_log_min_since_in",
+    "mc_log_age_days_cap3",
+    "cb_cross_bank",
+    "cb_log_n_banks_7d",
+    "cb_log_amount_usd",
+    "cy_reciprocity_7d",
+    "cy_log_n_reverse_7d",
+    "cy_log_min_since_reverse"
+  ],
+  "typology_n": {
+    "BIPARTITE": 381,
+    "CYCLE": 345,
+    "FAN-IN": 362,
+    "FAN-OUT": 294,
+    "GATHER-SCATTER": 714,
+    "RANDOM": 253,
+    "SCATTER-GATHER": 617,
+    "STACK": 540,
+    "UNSPECIFIED": 1983
+  },
+  "typology_ranks": {
+    "BIPARTITE": {
+      "R7": 4,
+      "gbdt_28": 2,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 1,
+      "ngau_nhien": 6
+    },
+    "CYCLE": {
+      "R7": 3,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "FAN-IN": {
+      "R7": 3,
+      "gbdt_28": 2,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 1,
+      "ngau_nhien": 6
+    },
+    "FAN-OUT": {
+      "R7": 1,
+      "gbdt_28": 4,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "GATHER-SCATTER": {
+      "R7": 3,
+      "gbdt_28": 2,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 1,
+      "ngau_nhien": 6
+    },
+    "RANDOM": {
+      "R7": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "SCATTER-GATHER": {
+      "R7": 3,
+      "gbdt_28": 1,
+      "rf_28": 4,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "STACK": {
+      "R7": 4,
+      "gbdt_28": 1,
+      "rf_28": 3,
+      "logistic_28": 5,
+      "gbdt_20": 2,
+      "ngau_nhien": 6
+    },
+    "UNSPECIFIED": {
+      "R7": 2,
+      "gbdt_28": 4,
+      "rf_28": 3,
+      "logistic_28": 1,
+      "gbdt_20": 5,
+      "ngau_nhien": 6
+    }
+  },
+  "typology_mean_rank": {
+    "R7": 3.0,
+    "gbdt_28": 2.0,
+    "rf_28": 3.4444444444444446,
+    "logistic_28": 4.555555555555555,
+    "gbdt_20": 2.0,
+    "ngau_nhien": 6.0
+  },
+  "notes": [
+    "Một seed (42).",
+    "F1 tốt nhất chọn ngưỡng trên CHÍNH tập này nên lạc quan; chỉ dùng để so tương đối.",
+    "Checkpoint DRRE được chọn theo val nên val hơi lạc quan cho DRRE; số chốt là test, chạy một lần.",
+    "Mô hình cổ điển học trên vũ trụ chấm điểm của train, cùng bộ cột với DRRE."
+  ],
+  "seconds": 3255.2
+}

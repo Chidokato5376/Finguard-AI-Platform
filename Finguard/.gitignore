@@ -49,3 +49,9 @@ reports/r0/*.done
 reports/leaderboard/*/scores/
 reports/r[0-9]*/*.done
 transfer/
+
+# Điểm thô của từng mô hình (hàng chục–hàng trăm MB .npy): dựng lại bằng scripts/leaderboard.py.
+reports/**/scores/
+# Gói của prototype web PHẢI được commit (máy chủ triển khai đọc trực tiếp): bỏ loại trừ "models/".
+!prototype/bundle/models/
+!prototype/bundle/models/*.pt

@@ -1,0 +1,44 @@
+{
+  "data": "data\\processed_aml_v2\\amlworld_val.parquet",
+  "base": "gbdt_28",
+  "drre": "R5",
+  "half_a": {
+    "rows": 366543,
+    "positives": 348
+  },
+  "half_b": {
+    "rows": 366543,
+    "positives": 412
+  },
+  "logistic_coef": [
+    0.8533504691835314,
+    0.27710693863254865
+  ],
+  "rank_weight_drre": 0.0,
+  "auprc_b": {
+    "gbdt_28": 0.5799900260133868,
+    "R5": 0.3806412624192673,
+    "tron_logistic": 0.5868366350814038,
+    "tron_thu_hang": 0.5799900260133868
+  },
+  "caught2000_b": {
+    "gbdt_28": 305,
+    "R5": 273,
+    "tron_logistic": 308,
+    "tron_thu_hang": 305
+  },
+  "vs_base_ci95": {
+    "R5": {
+      "lo": -0.24501601758293895,
+      "hi": -0.15851603003632836
+    },
+    "tron_logistic": {
+      "lo": -0.0024564802724398455,
+      "hi": 0.015955613859377937
+    },
+    "tron_thu_hang": {
+      "lo": 0.0,
+      "hi": 0.0
+    }
+  }
+}

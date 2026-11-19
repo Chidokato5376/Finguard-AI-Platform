@@ -1,0 +1,18 @@
+# Thư viện cho prototype web (prototype/app.py) — gọn hơn requirements.txt của cả dự án để
+# chạy được trên máy chủ miễn phí (Streamlit Community Cloud, ~1–2,7 GB RAM).
+# Python 3.10–3.12. Phiên bản ghim khớp môi trường đã huấn luyện/kiểm thử.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2
+numpy>=1.26,<2            # torch 2.2 biên dịch với numpy 1.x
+pandas==2.2.2
+pyarrow>=15
+scikit-learn==1.4.2       # PHẢI khớp phiên bản đã lưu gbdt_28_hi_medium.joblib
+joblib>=1.3
+streamlit>=1.45
+plotly>=5.20
+networkx>=3.2
+pyyaml>=6.0               # src/drre/train.py nạp cấu hình
+pulp>=2.8                 # QAPE: lời giải ILP chính xác
+dwave-neal>=0.6           # QAPE: ủ mô phỏng trên QUBO
+# QAOA (mô phỏng lượng tử) cần thêm khối qiskit trong requirements.txt của dự án;
+# không cài trên máy chủ miễn phí vì nặng — trang QAPE tự bỏ qua khi thiếu.
