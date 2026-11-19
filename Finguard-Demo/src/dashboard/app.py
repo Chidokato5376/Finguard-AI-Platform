@@ -1,19 +1,4 @@
-"""FinGuard AI — dashboard "kể chuyện" dành cho người không chuyên.
-
-Mỗi trang trả lời MỘT câu hỏi, bằng ngôn ngữ đời thường:
-  1. Câu chuyện                  — vì sao cần hệ thống này
-  2. Giao dịch nào đang đáng lo  — hàng đợi cảnh báo (chấm điểm rủi ro)
-  3. Vì sao đáng ngờ             — giải thích + đường đi của tiền (mạng lưới)
-  4. Ca trực xử lý gì trước      — phân bổ nguồn lực (QAPE) so với làm theo thứ tự đến
-  5. Hệ thống hoạt động thế nào  — giải thích cơ chế, giới hạn, chi tiết kỹ thuật
-
-Kiến trúc: các trang chỉ lo hiển thị. Logic nằm trong data_service,
-scoring_service, qape_service; story.py diễn đạt kết quả thành câu chữ.
-Cột `method` (cách chấm điểm đang dùng) LUÔN được công bố ở thanh bên.
-
-Chạy: streamlit run src/dashboard/app.py
-"""
-
+"""FinGuard AI — application shell for the Streamlit demo."""
 from __future__ import annotations
 
 import sys
@@ -21,42 +6,71 @@ from pathlib import Path
 
 import streamlit as st
 
-# Cho phép chạy `streamlit run src/dashboard/app.py` từ thư mục gốc dự án
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-st.set_page_config(page_title="FinGuard AI", page_icon=":material/shield:", layout="wide")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
+st.set_page_config(
+    page_title="FINGUARD AI | Risk Intelligence",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 from src.dashboard.data_service import list_available_sources  # noqa: E402
 from src.dashboard.story import DATA_NOTES, SOURCE_LABELS, load_scored, method_label  # noqa: E402
 
+st.markdown("""
+<style>
+:root { --fg-cyan:#22D3EE; --fg-muted:#91A4BA; --fg-panel:#0E1B2D; }
+.stApp { background: radial-gradient(ellipse at 75% -15%, #102944 0%, #07111F 50%); }
+[data-testid="stSidebar"] { background:#091626; border-right:1px solid #1B3048; }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:#C5D3E1; }
+.block-container { padding-top:1.35rem; max-width:1500px; }
+h1,h2,h3 { letter-spacing:-.025em; }
+[data-testid="stMetric"] { background:linear-gradient(145deg,#102238,#0B1828); border:1px solid #1B354F; padding:18px 20px; border-radius:14px; }
+[data-testid="stMetricLabel"] { color:#9DB2C8; }
+[data-testid="stMetricValue"] { color:#F1F7FC; }
+[data-testid="stAlert"] { border-radius:12px; }
+.fg-brand { font-size:1.4rem; font-weight:800; letter-spacing:.13em; color:#F4FAFF; }
+.fg-tagline { color:#91A4BA; font-size:.78rem; margin-top:-.35rem; }
+.fg-kicker { color:#22D3EE; text-transform:uppercase; letter-spacing:.16em; font-size:.72rem; font-weight:700; }
+.fg-card { background:linear-gradient(145deg,#102238,#0B1828); border:1px solid #1B354F; border-radius:14px; padding:18px; }
+.fg-muted { color:#91A4BA; }
+[data-testid="stDataFrame"] { border:1px solid #1B354F; border-radius:12px; }
+button[kind="primary"] { background:#0891B2; border-color:#22D3EE; }
+</style>
+""", unsafe_allow_html=True)
+
 sources = list_available_sources()
 if not sources:
-    st.warning(
-        "Chưa có dữ liệu để hiển thị. Chạy bước tiền xử lý trước:\n\n```bash\n"
-        "python -m src.data.preprocessing --source synthetic_vn --raw-path data/raw/synthetic_vn.csv "
-        "--output data/processed\n```"
-    )
+    st.error("Chưa có tập dữ liệu đã tiền xử lý trong `data/processed/`.")
     st.stop()
-
-if "source" not in st.session_state:
+if "source" not in st.session_state or st.session_state["source"] not in sources:
     st.session_state["source"] = "synthetic_vn" if "synthetic_vn" in sources else sources[0]
 
 with st.sidebar:
-    st.markdown("**:material/tune: Tùy chọn hiển thị**")
-    st.selectbox("Bộ dữ liệu", sources, format_func=lambda s: SOURCE_LABELS.get(s, s),
-                 key="source", disabled=len(sources) == 1)
-    st.slider("Xem bao nhiêu giao dịch gần nhất", 100, 800, 800, step=50, key="n_recent")
+    st.markdown('<div class="fg-brand">FINGUARD AI</div><div class="fg-tagline">Intelligent Transaction Risk Management</div>', unsafe_allow_html=True)
+    st.divider()
+    st.markdown("**Workspace**")
+    st.selectbox("Nguồn dữ liệu", sources, format_func=lambda s: SOURCE_LABELS.get(s, s), key="source", disabled=len(sources) == 1)
+    st.slider("Số giao dịch gần nhất", 100, 800, 800, step=50, key="n_recent")
     scored = load_scored(st.session_state["source"])
-    st.caption(f"**Cách chấm điểm đang dùng:** {method_label(scored)}.")
+    method = method_label(scored)
+    st.caption(f"Backend hiện tại: **{method}**")
     st.caption(DATA_NOTES.get(st.session_state["source"], ""))
-    st.caption("FinGuard chỉ **đề xuất**. Mọi quyết định chặn hay cho qua giao dịch "
-               "luôn do nhân viên ngân hàng đưa ra.")
+    st.divider()
+    st.caption("● DEMO ENVIRONMENT")
+    st.caption("Kết quả chỉ hỗ trợ rà soát. Không tự động chặn giao dịch.")
 
+st.markdown('<div class="fg-kicker">Financial Risk Intelligence Platform</div>', unsafe_allow_html=True)
 pages = [
-    st.Page("app_pages/cau_chuyen.py", title="Câu chuyện", icon=":material/auto_stories:", default=True),
-    st.Page("app_pages/giam_sat.py", title="Giao dịch đáng lo", icon=":material/notifications_active:"),
-    st.Page("app_pages/vi_sao.py", title="Vì sao đáng ngờ", icon=":material/manage_search:"),
-    st.Page("app_pages/uu_tien.py", title="Xử lý gì trước", icon=":material/checklist:"),
-    st.Page("app_pages/cach_hoat_dong.py", title="Hệ thống hoạt động thế nào", icon=":material/lightbulb:"),
+    st.Page("app_pages/overview.py", title="Overview Dashboard", icon="📊", default=True),
+    st.Page("app_pages/transaction_analysis.py", title="Transaction Analysis", icon="🔎"),
+    st.Page("app_pages/giam_sat.py", title="Alert Center", icon="🚨"),
+    st.Page("app_pages/vi_sao.py", title="Explainable AI", icon="🧠"),
+    st.Page("app_pages/uu_tien.py", title="Fraud Network & Prioritization", icon="🕸️"),
+    st.Page("app_pages/model_insights.py", title="Model Insights", icon="📈"),
+    st.Page("app_pages/quantum_status.py", title="Quantum Optimization", icon="⚛️"),
+    st.Page("app_pages/cach_hoat_dong.py", title="About & Methodology", icon="ℹ️"),
 ]
-st.navigation(pages, position="top").run()
+st.navigation(pages, position="sidebar").run()
+
