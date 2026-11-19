@@ -73,4 +73,3 @@ pages = [
     st.Page("app_pages/cach_hoat_dong.py", title="About & Methodology", icon="ℹ️"),
 ]
 st.navigation(pages, position="sidebar").run()
-
