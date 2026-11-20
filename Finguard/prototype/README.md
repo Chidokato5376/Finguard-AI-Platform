@@ -17,7 +17,7 @@ Web chạy thật trên dữ liệu AMLWorld HI-Medium và các mô hình đội
 Từ thư mục `Finguard/` (cần môi trường của dự án, hoặc chỉ `pip install -r prototype/requirements.txt`):
 
 ```bash
-streamlit run prototype/app.py
+streamlit run Finguard/prototype/app.py   (hoặc từ Finguard/: streamlit run prototype/app.py)
 ```
 
 ## Gói dữ liệu `prototype/bundle/` (~40 MB)

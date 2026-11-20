@@ -14,5 +14,6 @@ networkx>=3.2
 pyyaml>=6.0               # src/drre/train.py nạp cấu hình
 pulp>=2.8                 # QAPE: lời giải ILP chính xác
 dwave-neal>=0.6           # QAPE: ủ mô phỏng trên QUBO
+shap>=0.45                # Explainable AI: SHAP TreeExplainer trên GBDT
 # QAOA (mô phỏng lượng tử) cần thêm khối qiskit trong requirements.txt của dự án;
 # không cài trên máy chủ miễn phí vì nặng — trang QAPE tự bỏ qua khi thiếu.

@@ -1,12 +1,13 @@
-"""FinGuard AML — prototype vòng 2 (AI-Quantum Challenge 2026).
+"""FINGUARD AI — Intelligent Transaction Risk Management (prototype vòng 2, AI-Quantum Challenge 2026).
 
-Chấm điểm rủi ro rửa tiền cho giao dịch liên ngân hàng trên AMLWorld HI-Medium (IBM, 32 triệu
-giao dịch): GBDT 28 đặc trưng kịch bản + DRRE (bộ nhớ hành vi + đồ thị giao dịch chỉ dùng quá
-khứ), trộn thứ hạng; QAPE phân bổ ca trực. Mọi con số trên web lấy từ gói prototype/bundle/,
-dựng bằng scripts/build_prototype_bundle.py từ chính các lần huấn luyện/đánh giá của đội.
+Ứng dụng cho người dùng cuối, chạy trên các mô hình ĐÃ HUẤN LUYỆN của dự án (không train lại):
+  * GBDT 28 đặc trưng kịch bản (prototype/bundle/models/gbdt_28_hi_medium.joblib)
+  * DRRE R7 — bộ nhớ hành vi + đồ thị giao dịch chỉ dùng quá khứ (drre_r7_hi_medium.pt)
+  * Điểm hệ thống = trộn thứ hạng 95% GBDT + 5% DRRE; giải thích bằng SHAP TreeExplainer
+  * QAPE — phân bổ ca trực bằng Greedy / ILP / QUBO (ủ mô phỏng, QAOA)
+Dữ liệu trình diễn: AMLWorld HI-Medium (IBM), tập val; tập test chưa chạm.
 
-Chạy (từ thư mục Finguard/):
-    streamlit run prototype/app.py
+Chạy (từ thư mục gốc repo):  streamlit run Finguard/prototype/app.py
 """
 
 from __future__ import annotations
@@ -18,34 +19,39 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-st.set_page_config(page_title="FinGuard AML", page_icon=":material/shield:", layout="wide")
+st.set_page_config(page_title="FINGUARD AI | Risk Intelligence", page_icon="🛡️", layout="wide",
+                   initial_sidebar_state="expanded")
 
 import core  # noqa: E402
+import ui  # noqa: E402
 
+ui.setup()
 if not core.SAMPLE_PATH.exists():
-    st.error("Thiếu gói dữ liệu prototype/bundle/. Dựng lại bằng: "
-             "`python -X utf8 scripts/build_prototype_bundle.py`")
+    st.error("Thiếu gói dữ liệu/mô hình prototype/bundle/. Dựng lại: "
+             "`python -X utf8 Finguard/scripts/build_prototype_bundle.py`")
     st.stop()
 
 with st.sidebar:
-    st.markdown("### :material/shield: FinGuard AML")
-    st.caption("Đội CMET · AQ2026-111 · Vòng bán kết AI-Quantum Challenge 2026")
-    st.markdown(
-        "**Dữ liệu:** AMLWorld HI-Medium (IBM, dữ liệu mô phỏng có nhãn rửa tiền), "
-        f"khung {core.results()['window'][0][11:16]}–{core.results()['window'][1][11:16]} "
-        "ngày 13/09/2022 thuộc tập **val** (tập test chưa chạm).")
-    st.markdown(
-        "**Hệ thống:** GBDT 28 đặc trưng kịch bản (95%) + DRRE R7 (5%), trộn theo thứ hạng.")
-    st.caption("FinGuard chỉ đề xuất. Quyết định chặn, báo cáo giao dịch đáng ngờ luôn do "
-               "chuyên viên tuân thủ đưa ra.")
+    st.markdown('<div class="fg-brand">FINGUARD AI</div>'
+                '<div class="fg-tagline">Intelligent Transaction Risk Management</div>', unsafe_allow_html=True)
+    st.divider()
+    w = core.results()["window"]
+    st.markdown("**Workspace**")
+    st.caption(f"Dữ liệu: AMLWorld HI-Medium (IBM) · tập **validation** · {w[0][11:16]}–{w[1][11:16]} "
+               "13/09/2022 · 233.762 giao dịch thật đã chấm điểm.")
+    st.caption("Mô hình: GBDT 28 đặc trưng (95%) + DRRE R7 (5%) · giải thích SHAP · QAPE.")
+    st.divider()
+    st.caption("● DEMO ENVIRONMENT — dữ liệu mô phỏng công khai của IBM, không chứa khách hàng thật.")
+    st.caption("Kết quả chỉ hỗ trợ rà soát. Quyết định chặn / báo cáo giao dịch đáng ngờ do chuyên viên đưa ra.")
 
 pages = [
-    st.Page("views/tong_quan.py", title="Tổng quan", icon=":material/home:", default=True),
-    st.Page("views/canh_bao.py", title="Hàng đợi cảnh báo", icon=":material/notifications_active:"),
-    st.Page("views/vi_sao.py", title="Vì sao đáng ngờ", icon=":material/manage_search:"),
-    st.Page("views/ca_truc.py", title="Phân bổ ca trực (QAPE)", icon=":material/checklist:"),
-    st.Page("views/chay_thu.py", title="Chạy thử mô hình", icon=":material/play_circle:"),
-    st.Page("views/ket_qua.py", title="Kết quả đánh giá", icon=":material/leaderboard:"),
-    st.Page("views/tai_xuong.py", title="Dữ liệu & checkpoint", icon=":material/download:"),
+    st.Page("views/overview.py", title="Overview Dashboard", icon="📊", default=True),
+    st.Page("views/transaction_analysis.py", title="Transaction Analysis", icon="🔎"),
+    st.Page("views/network.py", title="Fraud Network Intelligence", icon="🕸️"),
+    st.Page("views/explainable_ai.py", title="Explainable AI", icon="🧠"),
+    st.Page("views/alert_center.py", title="Alert Center", icon="🚨"),
+    st.Page("views/model_insights.py", title="Model Insights", icon="📈"),
+    st.Page("views/quantum.py", title="Quantum Optimization", icon="⚛️"),
+    st.Page("views/resources.py", title="Data & Checkpoints", icon="📦"),
 ]
-st.navigation(pages, position="top").run()
+st.navigation(pages, position="sidebar").run()

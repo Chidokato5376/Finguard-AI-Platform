@@ -2,14 +2,13 @@ import pandas as pd
 import streamlit as st
 
 import core
+import ui
 
 res = core.results()
 small, med = res["leaderboard_hi_small"]["models"], res["leaderboard_hi_medium"]["models"]
 
-st.title("Dữ liệu và checkpoint để tự kiểm tra")
-st.markdown(
-    "Toàn bộ mô hình đã huấn luyện trong đợt 2 được đóng gói kèm web. Ban Giám khảo có thể tải về, "
-    "chấm lại trên máy mình và so với số trên trang *Kết quả đánh giá*.")
+ui.header("Data & Checkpoints", "Toàn bộ mô hình đã huấn luyện được đóng gói kèm ứng dụng. Ban Giám khảo có thể "
+          "tải về, chấm lại trên máy mình và đối chiếu với số ở trang Model Insights.")
 
 desc = {
     "R2": ("HI-Small", "DRRE v1 + 28 đặc trưng"), "R3": ("HI-Small", "+ tầng chấm điểm v2"),
@@ -24,7 +23,7 @@ for name, file in res["checkpoints"].items():
     rows.append({"Bậc": name, "Dữ liệu huấn luyện": desc[name][0], "Cấu hình": desc[name][1].replace("**", ""),
                  "Val AUPRC": board.get(name, {}).get("auprc"), "Tệp": file,
                  "Dung lượng (KB)": round(path.stat().st_size / 1024)})
-st.dataframe(pd.DataFrame(rows).style.format({"Val AUPRC": "{:.4f}"}), hide_index=True)
+st.dataframe(pd.DataFrame(rows).style.format({"Val AUPRC": "{:.4f}"}), hide_index=True, use_container_width=True)
 
 st.subheader("Tải về")
 c1, c2 = st.columns(2, border=True)

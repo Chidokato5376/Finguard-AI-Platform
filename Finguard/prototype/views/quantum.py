@@ -6,17 +6,33 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import core
+import ui
 from src.qape.qubo import Alert
 from src.qape.solvers import solve_greedy, solve_ilp_exact
 
 df = core.sample()
 
-st.title("Ca trực nên kiểm tra cảnh báo nào trước? (QAPE)")
-st.markdown(
-    "Một chuyên viên chỉ có vài giờ mỗi ca, mỗi cảnh báo tốn thời gian đối chiếu khác nhau. QAPE chọn "
-    "**tập cảnh báo đem lại nhiều rủi ro được xử lý nhất** trong quỹ thời gian — bài toán ba lô "
-    "(knapsack) được viết thành QUBO để giải bằng thuật toán lượng tử (QAOA) hoặc ủ mô phỏng, đối chiếu "
-    "với lời giải chính xác (ILP) và cách làm phổ biến: **đến trước làm trước**.")
+ui.header("Quantum Optimization", "QAPE — chọn cảnh báo cho ca trực dưới ràng buộc thời gian. Đây là bài toán tối ưu "
+          "phân bổ nguồn lực, KHÔNG phải mô hình dự đoán. Bộ giải chạy thật: src/qape/solvers.py.")
+
+st.subheader("Optimization Pipeline")
+p = st.columns(5)
+for col, (t, d) in zip(p, [
+        ("1 · Candidate Alerts", "Cảnh báo 🔴/🟡 của giờ đã chọn, theo thứ tự phát sinh, kèm xác suất ước tính."),
+        ("2 · Chi phí & ngân sách", "Thời gian xử lý mỗi cảnh báo (giả định minh họa) và quỹ giờ của ca."),
+        ("3 · QUBO Formulation", "Knapsack + ràng buộc bắt buộc → QuadraticProgram → QUBO phạt (qiskit-optimization)."),
+        ("4 · Solvers", "Greedy, ILP chính xác (PuLP/CBC), ủ mô phỏng (dwave-neal), QAOA (Qiskit Aer)."),
+        ("5 · So sánh", "Rủi ro kỳ vọng, số vụ thật bắt được, thời gian giải — so với đến-trước-làm-trước.")]):
+    with col:
+        ui.card(t, d)
+
+with st.expander("QUBO Formulation (đúng như src/qape/qubo.py)", expanded=False):
+    st.latex(r"\max_{x\in\{0,1\}^n}\ \sum_i r_i\,u_i\,x_i \quad \text{s.t.}\quad \sum_i c_i x_i \le B,"
+             r"\qquad x_i = 1\ \ orall i:\ r_i \ge 90")
+    st.latex(r"\min_{x,s}\ -\sum_i r_i u_i x_i + \lambda_1\Big(\sum_i c_i x_i + \sum_k 2^k s_k - B\Big)^2"
+             r" + \lambda_2 \sum_{i\,\in\,\text{critical}} (1-x_i)")
+    st.caption("r_i = 100 × xác suất rửa tiền ước tính; c_i = phút xử lý; B = quỹ phút của ca; s_k = biến bù (slack) "
+               "nhị phân của ràng buộc ngân sách. Chuyển QUBO bằng QuadraticProgramToQubo (penalty λ₁ = 5).")
 
 with st.container(border=True):
     c1, c2, c3 = st.columns(3)
@@ -64,7 +80,8 @@ try:
 except ImportError:
     st.caption("Chưa cài pulp — bỏ qua ILP.")
 
-quantum = st.toggle("Chạy thêm QUBO: ủ mô phỏng, và QAOA khi có ≤ 6 cảnh báo (mô phỏng lượng tử, ~30 giây)", value=False)
+quantum = st.toggle(
+    "Chạy thêm QUBO: ủ mô phỏng, và QAOA khi có ≤ 6 cảnh báo (mô phỏng lượng tử, ~30 giây)", value=False)
 if quantum:
     try:
         from src.qape.solvers import solve_simulated_annealing
@@ -101,19 +118,19 @@ for name, (ids, secs) in results.items():
                  "Thời gian giải (ms)": round(1000 * secs, 1)})
 board = pd.DataFrame(rows)
 st.subheader(f"So sánh trên {len(pool)} cảnh báo, quỹ {hours:g} giờ".replace(".", ","))
-st.dataframe(board, hide_index=True)
+st.markdown("**Optimization Results · Classical vs Quantum Comparison**")
+st.dataframe(board, hide_index=True, use_container_width=True)
 
 fig = go.Figure(go.Bar(x=board["Cách chọn"], y=board["Rủi ro kỳ vọng xử lý được (Σ xác suất)"],
-                       marker_color=["#9aa9b3"] + ["#0e6375"] * (len(board) - 1),
+                       marker_color=["#2B4763"] + [ui.CYAN] * (len(board) - 1),
                        text=board["Vụ rửa tiền thật bắt được"].map(lambda v: f"{v} vụ thật"),
                        textposition="outside"))
-fig.update_layout(height=320, margin=dict(l=10, r=10, t=30, b=10),
-                  yaxis_title="Rủi ro kỳ vọng xử lý được")
-st.plotly_chart(fig, use_container_width=True)
+fig.update_layout(yaxis_title="Rủi ro kỳ vọng xử lý được")
+st.plotly_chart(ui.style(fig, 320, legend=False), use_container_width=True)
 
 best = results.get("Tối ưu chính xác (ILP)", results["Tham lam (Greedy)"])[0]
 show = pool.assign(chon=pool["tx_id"].astype(str).isin(best)).sort_values(["chon", "p"], ascending=False)
-st.markdown("**Danh sách đề xuất (lời giải tối ưu):**")
+st.markdown("**Candidate Alerts · danh sách đề xuất (lời giải tối ưu):**")
 st.dataframe(pd.DataFrame({
     "Xử lý trong ca": np.where(show["chon"], "✅", "⏭ ca sau"),
     "Mã GD": show["tx_id"], "Thời điểm": show["timestamp"].dt.strftime("%H:%M"),
@@ -121,7 +138,7 @@ st.dataframe(pd.DataFrame({
     "Thời gian xử lý (phút)": show["minutes"].astype(int),
     "Số tiền": show["amount"].round(2), "Tiền tệ": show["currency"].astype(str),
     "Nhãn thật": np.where(show["label"].astype(bool), "Rửa tiền", "—"),
-}), hide_index=True)
+}), hide_index=True, use_container_width=True)
 st.caption("Cảnh báo có xác suất ước tính ≥ 90% luôn bắt buộc xử lý. Xác suất ước tính lấy từ điểm hệ thống qua hồi quy đẳng trương trên val HI-Medium. "
            "Thời gian xử lý từng cảnh báo là giả định minh họa (xem chú thích trong mã nguồn). "
            f"Mỗi đơn vị chi phí QUBO = 10 phút; quỹ = {budget:g} đơn vị.")
