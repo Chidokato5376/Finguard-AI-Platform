@@ -1,0 +1,140 @@
+{
+  "kind": "evaluate_ieee_cis_test",
+  "run_id": "20261017-155119-evaluate_ieee_cis_test",
+  "started_utc": "2026-10-17T15:51:16+00:00",
+  "finished_utc": "2026-10-17T15:51:19+00:00",
+  "duration_seconds": 25.7,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models\\drre_ieee_f10_state.pt",
+    "compare_checkpoint": "models\\drre_ieee_f10.pt",
+    "budgets": [
+      500,
+      1000,
+      2000
+    ],
+    "bootstrap": 300,
+    "score_batch_size": 8192,
+    "baselines": false,
+    "compare_baseline": null,
+    "by_period": 0,
+    "universe": "clean",
+    "scored_rows": 45000,
+    "total_rows": 45000
+  },
+  "data": {
+    "eval_file": {
+      "path": "data\\processed\\ieee_cis_test.parquet",
+      "exists": true,
+      "bytes": 2009704,
+      "modified_utc": "2026-10-17T15:14:45+00:00",
+      "sha256": "4b1698c7006b2081db843a45115c6b21",
+      "hash_scope": "full",
+      "n_rows": 45000,
+      "columns": [
+        "account_id",
+        "counterparty_id",
+        "step",
+        "amount",
+        "channel",
+        "label",
+        "source",
+        "device_id",
+        "ip_country",
+        "is_synthetic_field",
+        "amount_norm",
+        "log_n_prior",
+        "log_amount_ratio",
+        "z_amount",
+        "log_gap",
+        "is_round_amount",
+        "hour_sin",
+        "hour_cos",
+        "dow",
+        "eval_universe",
+        "channel_encoded"
+      ],
+      "n_positive": 1757,
+      "positive_rate": 0.039044444444444444,
+      "time_col": "step",
+      "time_min": "6108395",
+      "time_max": "7415031",
+      "n_accounts": 17691
+    }
+  },
+  "results": {
+    "random_baseline_auprc": 0.039044444444444444,
+    "metrics": {
+      "drre_ieee_f10_state.pt (drre_trained)": {
+        "auprc": 0.09702827766665109,
+        "roc_auc": 0.7048611313563853,
+        "ece": 0.45525006505499943,
+        "recall@500": 0.040978941377347755,
+        "fpr@500": 0.856,
+        "caught@500": 72.0,
+        "recall@1000": 0.07854297097324986,
+        "fpr@1000": 0.862,
+        "caught@1000": 138.0,
+        "recall@2000": 0.14456459874786567,
+        "fpr@2000": 0.873,
+        "caught@2000": 254.0
+      },
+      "drre_ieee_f10.pt (drre_trained)": {
+        "auprc": 0.0899651583864959,
+        "roc_auc": 0.7024898776225225,
+        "ece": 0.4584251174485948,
+        "recall@500": 0.033010813887307915,
+        "fpr@500": 0.884,
+        "caught@500": 58.0,
+        "recall@1000": 0.058622652248150255,
+        "fpr@1000": 0.897,
+        "caught@1000": 103.0,
+        "recall@2000": 0.13375071143995446,
+        "fpr@2000": 0.8825,
+        "caught@2000": 235.0
+      }
+    },
+    "bootstrap": {
+      "diff_auprc": 0.007063119280155197,
+      "ci95": [
+        0.00248174150567455,
+        0.012831979553971286
+      ],
+      "n_boot": 300
+    },
+    "bootstrap_vs_baseline": null,
+    "markdown_table": "| Phương pháp | AUPRC | ROC-AUC | Bắt được / 500 | Bắt được / 1000 | Bắt được / 2000 |\n|---|---|---|---|---|---|\n| drre_ieee_f10.pt (drre_trained) | 0.0900 | 0.702 | 58 | 103 | 235 |\n| drre_ieee_f10_state.pt (drre_trained) | 0.0970 | 0.705 | 72 | 138 | 254 |",
+    "by_period": null,
+    "by_period_markdown_table": null
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "bae5bbba015da49d7bd87e57c2ae3e85fd193cda",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts\\evaluate.py",
+      "--source",
+      "ieee_cis",
+      "--split",
+      "test",
+      "--checkpoint",
+      "models\\drre_ieee_f10_state.pt",
+      "--compare-checkpoint",
+      "models\\drre_ieee_f10.pt",
+      "--no-baselines",
+      "--bootstrap",
+      "300"
+    ]
+  },
+  "notes": []
+}

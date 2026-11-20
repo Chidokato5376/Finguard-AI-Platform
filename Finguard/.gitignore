@@ -40,3 +40,18 @@ models/
 # IDE
 .vscode/
 .idea/
+
+# Log chạy dài (tiền xử lý / huấn luyện)
+logs/
+# Điểm từng biến thể R1 (vài trăm MB, tái tạo được bằng scripts/run_r1.sh) và dấu đã chạy xong.
+reports/r1/*/scores/
+reports/r0/*.done
+reports/leaderboard/*/scores/
+reports/r[0-9]*/*.done
+transfer/
+
+# Điểm thô của từng mô hình (hàng chục–hàng trăm MB .npy): dựng lại bằng scripts/leaderboard.py.
+reports/**/scores/
+# Gói của prototype web PHẢI được commit (máy chủ triển khai đọc trực tiếp): bỏ loại trừ "models/".
+!prototype/bundle/models/
+!prototype/bundle/models/*.pt

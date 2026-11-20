@@ -49,10 +49,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import random
 import time
 from collections import deque
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -62,14 +64,199 @@ import yaml
 from torch import nn
 
 from src.dashboard.graph_utils import build_account_graph
+from src.drre.past_graph import (
+    DEFAULT_BLOCK, DEFAULT_FANOUT, DEFAULT_LOOKBACK_HOURS, GRAPH_ARCHES, GRAPH_MODES, BlockGraph,
+    PastGraphBuffer, encode_rows,
+)
 from src.drre.losses import DRRECompositeLoss, EMATargetEncoder, prediction_loss
-from src.drre.model import DRRE
-from src.scoring.risk_scoring import RiskScoringEngine
+from src.drre.model import DRRE, build_drre
+from src.scoring.risk_scoring import RiskScoringEngine, build_risk_engine
 from src.tracking import DEFAULT_RUNS_DIR, RunManifest, dataframe_summary, file_fingerprint
 
 logger = logging.getLogger(__name__)
 
 FEATURE_COLUMNS = ["amount_norm", "channel_encoded"]
+
+def features_for(
+    source: str,
+    override: Sequence[str] | None = None,
+    available: Sequence[str] | None = None,
+) -> list[str]:
+    """Danh sách đặc trưng đầu vào cho một nguồn, có thể ghi đè từ dòng lệnh.
+
+    NGUỒN DUY NHẤT của danh sách này là src/data/features.py — nơi sinh ra
+    chính các cột đó. Hai danh sách ở hai file sẽ lệch nhau sau vài lần sửa,
+    nên ở đây chỉ gọi lại, không khai báo lần hai.
+
+    Dùng `--features amount_norm,channel_encoded` để tái lập các lần chạy cũ
+    (trước 2026-10-17 mô hình chỉ nhận đúng 2 đặc trưng này).
+    """
+    if override:
+        return list(override)
+    from src.data.features import features_for_source
+
+    wanted = features_for_source(source)
+    if available is None:
+        return wanted
+
+    # Giao với các cột CÓ THẬT trong dữ liệu. Lý do: nhóm đặc trưng dòng tiền
+    # (src/data/graph_features.py) chỉ xuất hiện trong parquet được tiền xử lý
+    # từ 2026-10-24 trở đi. Nếu không giao ở đây, mọi parquet cũ sẽ chết bằng
+    # KeyError giữa chừng thay vì chạy được với bộ đặc trưng cũ.
+    have = [c for c in wanted if c in available]
+    missing = [c for c in wanted if c not in available]
+    if missing:
+        logger.warning(
+            "Dữ liệu thiếu %d/%d đặc trưng (%s) — chạy với %d đặc trưng còn lại. "
+            "Tiền xử lý lại để có đủ nhóm đặc trưng dòng tiền.",
+            len(missing), len(wanted), missing, len(have),
+        )
+    return have
+
+
+def scored_mask(df: pd.DataFrame) -> np.ndarray:
+    """Mặt nạ các dòng ĐƯỢC tính vào mất mát BCE và vào chỉ số đánh giá.
+
+    Lấy từ cột `eval_universe` do preprocessing.add_eval_universe sinh ra.
+    Nguồn/tập dữ liệu cũ chưa có cột này thì coi như chấm điểm MỌI dòng —
+    giữ đúng hành vi trước đây, không âm thầm đổi kết quả của checkpoint cũ.
+    """
+    if "eval_universe" not in df.columns:
+        return np.ones(len(df), dtype=bool)
+    return df["eval_universe"].fillna(True).to_numpy(dtype=bool)
+
+
+#: Cột của tệp đã tiền xử lý KHÔNG dùng khi huấn luyện (chỉ để truy vết/hiển thị).
+TRAIN_UNUSED_COLUMNS = frozenset({
+    "is_synthetic_field", "device_id", "ip_country", "source", "currency", "channel",
+    "laundering_pattern", "is_fx",
+})
+
+
+#: Số tài khoản tối đa được giữ trạng thái Behavior Memory giữa các cửa sổ.
+#: Mỗi tài khoản tốn (hidden_dim + num_slots*hidden_dim) số thực = 320 số với
+#: cấu hình mặc định ≈ 1,3 KB, nên 150.000 tài khoản ≈ 192 MB cho mỗi store.
+#: Không giữ được toàn bộ: PaySim có 8,4 triệu tài khoản (≈ 10,8 GB).
+DEFAULT_STATE_CACHE = 150_000
+
+
+class BehaviorStateStore:
+    """Giữ trạng thái (h, m) của Behavior Memory GIỮA các cửa sổ, theo account_id.
+
+    === VÌ SAO CẦN ===
+
+    Trước 2026-10-17, `run_encoder_over_window` gọi `init_state` ở MỖI cửa sổ,
+    nên "bộ nhớ hành vi" chỉ dài bằng một cửa sổ. Đo thực tế: với cửa sổ
+    32.768, chỉ 2,1% giao dịch gian lận của PaySim có giao dịch trước đó của
+    cùng tài khoản NẰM TRONG cùng cửa sổ (8192 → 0,7%). Nói cách khác,
+    Behavior Memory bị vô hiệu hóa bởi cách chia lô, không phải do thiết kế
+    sai — và kết quả ablation âm trước đây (bỏ Behavior Memory thì AUPRC tăng,
+    KTC 95% [−0,016; −0,003]) KHÔNG phải phán quyết về ý tưởng.
+
+    === HAI HỆ QUẢ PHẢI BIẾT ===
+
+    1. Mang trạng thái qua cửa sổ CHỈ đúng khi các cửa sổ được xử lý THEO
+       THỨ TỰ THỜI GIAN. Nếu xáo trộn thứ tự cửa sổ (mặc định khi huấn luyện),
+       một cửa sổ ở thời điểm T sẽ nhận trạng thái của thời điểm T+k — rò rỉ
+       tương lai. Vì vậy train() TẮT xáo trộn khi bật tính năng này, và đánh
+       đổi đó được ghi vào manifest.
+    2. Trạng thái nạp vào đã `detach()`, nên gradient KHÔNG truyền về các cửa
+       sổ trước (truncated BPTT). Đây là lựa chọn có ý thức: giữ đồ thị đạo
+       hàm qua hàng trăm cửa sổ là bất khả thi về bộ nhớ.
+
+    Bộ nhớ có giới hạn cứng `capacity`, thay thế theo kiểu vào trước ra trước.
+    Tài khoản bị loại khỏi bộ đệm sẽ quay về trạng thái khởi tạo — chấp nhận
+    được, vì tài khoản bị loại là tài khoản lâu không xuất hiện.
+    """
+
+    def __init__(self, hidden_dim: int, num_slots: int, capacity: int = DEFAULT_STATE_CACHE):
+        self.capacity = int(capacity)
+        self._h = torch.zeros(self.capacity, hidden_dim)
+        self._m = torch.zeros(self.capacity, num_slots, hidden_dim)
+        self._slot_of: dict[object, int] = {}
+        self._owner: list[object | None] = [None] * self.capacity
+        self._cursor = 0
+        self.hits = 0
+        self.lookups = 0
+        self.evictions = 0
+
+    def reset(self) -> None:
+        """Xóa toàn bộ trạng thái — PHẢI gọi ở đầu mỗi epoch, vì epoch mới
+        chạy lại dòng dữ liệu từ thời điểm đầu; giữ trạng thái của cuối epoch
+        trước là đưa thông tin tương lai vào cửa sổ đầu tiên."""
+        self._slot_of.clear()
+        self._owner = [None] * self.capacity
+        self._cursor = 0
+        self._h.zero_()
+        self._m.zero_()
+        self.hits = self.lookups = self.evictions = 0
+
+    def state_dict(self) -> dict:
+        """Toàn bộ trạng thái để lưu xuống đĩa — dùng khi quét dài cần chạy tiếp."""
+        return {
+            "capacity": self.capacity, "h": self._h, "m": self._m,
+            "slot_of": self._slot_of, "owner": self._owner, "cursor": self._cursor,
+            "hits": self.hits, "lookups": self.lookups, "evictions": self.evictions,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        if int(state["capacity"]) != self.capacity:
+            raise ValueError(
+                f"Bộ đệm đã lưu có capacity={state['capacity']}, bộ đệm hiện tại "
+                f"capacity={self.capacity} — không nạp được.")
+        self._h, self._m = state["h"], state["m"]
+        self._slot_of, self._owner = state["slot_of"], state["owner"]
+        self._cursor = int(state["cursor"])
+        self.hits, self.lookups, self.evictions = (
+            int(state["hits"]), int(state["lookups"]), int(state["evictions"]))
+
+    @property
+    def hit_rate(self) -> float:
+        return self.hits / self.lookups if self.lookups else 0.0
+
+    def _allocate(self, account: object) -> int:
+        slot = self._cursor
+        self._cursor = (self._cursor + 1) % self.capacity
+        previous = self._owner[slot]
+        if previous is not None:
+            del self._slot_of[previous]
+            self.evictions += 1
+        self._owner[slot] = account
+        self._slot_of[account] = slot
+        return slot
+
+    def load(
+        self, accounts: Sequence[object], h_state: torch.Tensor, m_state: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Ghi đè trạng thái đã lưu vào h_state/m_state cho các tài khoản đã gặp."""
+        rows, slots = [], []
+        for i, account in enumerate(accounts):
+            slot = self._slot_of.get(account)
+            if slot is not None:
+                rows.append(i)
+                slots.append(slot)
+        self.lookups += len(accounts)
+        self.hits += len(rows)
+        if not rows:
+            return h_state, m_state
+        idx = torch.as_tensor(rows, dtype=torch.long, device=h_state.device)
+        sl = torch.as_tensor(slots, dtype=torch.long)
+        return (
+            h_state.index_copy(0, idx, self._h[sl].to(h_state.device)),
+            m_state.index_copy(0, idx, self._m[sl].to(m_state.device)),
+        )
+
+    def save(
+        self, accounts: Sequence[object], h_state: torch.Tensor, m_state: torch.Tensor
+    ) -> None:
+        """Lưu trạng thái CUỐI CÙNG của cửa sổ cho từng tài khoản."""
+        slots = np.empty(len(accounts), dtype=np.int64)
+        for i, account in enumerate(accounts):
+            slot = self._slot_of.get(account)
+            slots[i] = self._allocate(account) if slot is None else slot
+        sl = torch.as_tensor(slots, dtype=torch.long)
+        self._h.index_copy_(0, sl, h_state.detach().to("cpu", torch.float32))
+        self._m.index_copy_(0, sl, m_state.detach().to("cpu", torch.float32))
 
 #: Số vòng lấy mẫu lại khi mẫu negative trùng tài khoản với anchor — xem
 #: build_contrastive_triplets. Xác suất trùng ≈ 1/số tài khoản trong cửa sổ,
@@ -82,6 +269,59 @@ SMOOTH_WINDOW = 3
 
 #: Các cách chọn checkpoint tốt nhất theo val AUPRC. Xem select_epoch.
 SELECTION_MODES = ("smoothed", "argmax")
+
+#: Phiên bản định dạng tệp trạng thái chạy tiếp (xem resume_state_path).
+#: Tăng số này khi đổi cấu trúc tệp — tệp cũ sẽ bị từ chối thay vì nạp sai.
+#: 2 từ Giai đoạn 2A (DRRE v2 có thêm buffer chuẩn hóa). Định dạng 1 vẫn đọc được cho v1.
+RESUME_FORMAT = 2
+
+#: Kiến trúc DRRE: v1 gốc, v2 = tầng chấm điểm đã sửa (src/drre/model_v2.py).
+ARCHES = ("v1", "v2")
+#: Số nơ-ron lớp ẩn của đầu chấm điểm MLP (v2).
+RISK_HIDDEN = 64
+#: Số dòng train tối đa dùng để học thống kê chuẩn hóa (v2).
+NORMALIZER_SAMPLE = 2_000_000
+
+#: Ghi log tiến độ sau mỗi bấy nhiêu cửa sổ huấn luyện. Một epoch HI-Medium
+#: có ~680 cửa sổ trong vài giờ — không có dòng này thì không biết còn bao lâu.
+PROGRESS_EVERY = 25
+
+
+# --------------------------------------------------------------------------
+# Chạy tiếp theo từng epoch (chia một lần huấn luyện dài thành nhiều phiên)
+# --------------------------------------------------------------------------
+#
+# Một epoch HI-Medium (22 triệu dòng) mất vài giờ trên CPU, nên 5–10 epoch
+# không thể chạy trong một phiên làm việc. Ranh giới epoch là điểm dừng SẠCH
+# duy nhất: BehaviorStateStore được reset ở đầu mỗi epoch, nên giữa hai epoch
+# không có trạng thái tài khoản nào cần mang theo (tiết kiệm ~5 GB). Thứ cần
+# lưu chỉ là trọng số, optimizer, mạng EMA, trạng thái RNG và lịch sử chọn
+# checkpoint — đủ để phiên sau cho kết quả GIỐNG HỆT chạy liền một mạch
+# (xem test_resume_matches_uninterrupted_run).
+
+
+def resume_state_path(checkpoint_path: str | Path) -> Path:
+    """Tệp trạng thái chạy tiếp đi kèm checkpoint: models/x.pt -> models/x.resume.pt."""
+    p = Path(checkpoint_path)
+    return p.with_name(p.stem + ".resume.pt")
+
+
+def _save_resume_state(path: Path, state: dict) -> None:
+    """Ghi nguyên tử: ghi ra tệp tạm rồi đổi tên, để mất điện giữa lúc ghi
+    không làm hỏng trạng thái tốt của epoch trước."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    torch.save(state, tmp)
+    os.replace(tmp, path)
+
+
+def _resume_mismatches(saved: dict, current: dict) -> list[str]:
+    """Các khóa có giá trị khác nhau giữa hai bộ siêu tham số/dấu vân tay dữ
+    liệu. Chạy tiếp với cấu hình khác là ghép hai thí nghiệm khác nhau thành
+    một manifest — phải từ chối, không được lặng lẽ chấp nhận."""
+    keys = sorted(set(saved) | set(current))
+    return [f"{k}: {saved.get(k)!r} -> {current.get(k)!r}"
+            for k in keys if saved.get(k) != current.get(k)]
 
 
 # --------------------------------------------------------------------------
@@ -116,6 +356,19 @@ def window_bounds(n_rows: int, batch_size: int) -> list[tuple[int, int]]:
     return bounds
 
 
+def _time_sorted_view(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
+    """`df` theo thứ tự thời gian, chỉ số 0..n-1 — KHÔNG sao chép khi `df` đã như vậy.
+
+    Bản sao của cả tập train (22 triệu dòng HI-Medium ≈ 5–6 GB) mỗi epoch từng đẩy tiến trình
+    tới 21 GB RAM (đo 15/11). Thứ tự giống hệt sort_values(kind="stable").
+    """
+    index = df.index
+    if (isinstance(index, pd.RangeIndex) and index.start == 0 and index.step == 1
+            and df[time_col].is_monotonic_increasing):
+        return df
+    return df.sort_values(time_col, kind="stable").reset_index(drop=True)
+
+
 def iter_time_windows(
     df: pd.DataFrame, batch_size: int, time_col: str, rng: random.Random | None = None
 ):
@@ -130,7 +383,7 @@ def iter_time_windows(
     Trả về bộ (số cửa sổ, generator) để vòng lặp vẫn biết tổng số cửa sổ
     trước khi chạy — dùng cho log tiến độ.
     """
-    df_sorted = df.sort_values(time_col, kind="stable").reset_index(drop=True)
+    df_sorted = _time_sorted_view(df, time_col)
     bounds = window_bounds(len(df_sorted), batch_size)
     order = list(range(len(bounds)))
     if rng is not None:
@@ -155,6 +408,7 @@ def run_encoder_over_window_sequential(
     edge_index: torch.Tensor,
     account_to_idx: dict[str, int],
     device: torch.device,
+    feature_columns: Sequence[str] = FEATURE_COLUMNS,
 ) -> dict[str, torch.Tensor]:
     """BẢN THAM CHIẾU — chạy một lần forward cho MỖI giao dịch.
 
@@ -171,9 +425,9 @@ def run_encoder_over_window_sequential(
     pred_out: list[torch.Tensor | None] = [None] * n
 
     # Tính embedding đồ thị MỘT lần cho cả cửa sổ (xem DRRE.forward).
-    g_all = model.graph_encoder(node_features, edge_index)
+    g_all = model.encode_graph(node_features, edge_index)
 
-    for account_id, group in window.groupby("account_id", sort=False):
+    for account_id, group in window.groupby("account_id", sort=False, observed=True):
         idxs = group.index.tolist()  # đã sort theo group nhưng group giữ thứ tự gốc (đã sort theo time trước đó)
         h, m = model.behavior_memory.init_state(1, device=device)
         if account_id not in account_to_idx:
@@ -189,7 +443,8 @@ def run_encoder_over_window_sequential(
 
         for row_idx in idxs:
             x_t = torch.tensor(
-                window.loc[row_idx, FEATURE_COLUMNS].to_numpy(dtype=np.float32), device=device
+                window.loc[row_idx, list(feature_columns)].to_numpy(dtype=np.float32),
+                device=device,
             ).unsqueeze(0)
             out = model(x_t, h, m, node_features, edge_index, node_idx, g_all=g_all)
             h, m = out["h_t"], out["m_t"]
@@ -206,8 +461,15 @@ def run_encoder_over_window(
     edge_index: torch.Tensor,
     account_to_idx: dict[str, int],
     device: torch.device,
+    feature_columns: Sequence[str] = FEATURE_COLUMNS,
+    state_store: BehaviorStateStore | None = None,
+    graphs: list[BlockGraph] | None = None,
 ) -> dict[str, torch.Tensor]:
     """Chạy DRRE cho một cửa sổ theo BƯỚC THỜI GIAN thay vì theo từng dòng.
+
+    `graphs` (đồ thị quá khứ theo khối, src/drre/past_graph.py) thay cho đồ thị
+    cửa sổ: khi có, node_features/edge_index/account_to_idx bị bỏ qua và mỗi dòng
+    nhận embedding đồ thị của riêng khối nó.
 
     Cùng một phép tính như run_encoder_over_window_sequential: mỗi tài
     khoản vẫn đi qua GRU đúng thứ tự thời gian của nó. Khác biệt duy nhất
@@ -228,24 +490,36 @@ def run_encoder_over_window(
     codes, uniques = pd.factorize(pd.Series(accounts), sort=False)
     # Vị trí của mỗi giao dịch trong chuỗi của chính tài khoản nó. window đã
     # sắp theo thời gian từ make_time_windows, nên cumcount = thứ tự thời gian.
-    position = window.groupby("account_id", sort=False).cumcount().to_numpy()
-
-    missing = [a for a in uniques if a not in account_to_idx]
-    if missing:
-        raise KeyError(
-            f"{len(missing)} account_id không có trong account_to_idx (vd. {missing[:3]}) — "
-            "build_account_graph phải bao gồm mọi account_id làm node."
-        )
+    # `observed=True` KHÔNG phải tinh chỉnh vi mô — nó là khác biệt giữa chạy
+    # được và không chạy được. Loader AMLWorld để `account_id` là Categorical
+    # với ~497.000 category; với mặc định `observed=False`, pandas tạo một
+    # nhóm cho MỌI category kể cả tài khoản không hề có mặt trong cửa sổ, nên
+    # mỗi cửa sổ 32.768 dòng phải duyệt 497.000 nhóm thay vì ~30.000. Đo được
+    # (2026-10-20): 342 giây cho 200.000 dòng, tức ~1,4 giờ/epoch và 28 giờ
+    # cho 20 epoch. Thiếu đúng một tham số này là mất gần hai ngày máy.
+    position = window.groupby("account_id", sort=False, observed=True).cumcount().to_numpy()
 
     x_all = torch.as_tensor(
-        window[FEATURE_COLUMNS].to_numpy(dtype=np.float32), device=device)
-    node_idx_by_account = torch.as_tensor(
-        np.array([account_to_idx[a] for a in uniques], dtype=np.int64), device=device)
+        window[list(feature_columns)].to_numpy(dtype=np.float32), device=device)
     codes_t = torch.as_tensor(codes.astype(np.int64), device=device)
-
-    # Graph Encoder chỉ phụ thuộc đồ thị của cửa sổ -> chạy một lần.
-    g_all = model.graph_encoder(node_features, edge_index)
+    if graphs is not None:
+        # Mỗi dòng một embedding đồ thị (của khối nó) -> chỉ số nút chính là chỉ số dòng.
+        g_all = encode_rows(model, graphs, len(window), device)
+        node_idx_by_row = torch.arange(len(window), device=device)
+    else:
+        missing = [a for a in uniques if a not in account_to_idx]
+        if missing:
+            raise KeyError(
+                f"{len(missing)} account_id không có trong account_to_idx (vd. {missing[:3]}) — "
+                "build_account_graph phải bao gồm mọi account_id làm node."
+            )
+        node_idx_by_account = torch.as_tensor(
+            np.array([account_to_idx[a] for a in uniques], dtype=np.int64), device=device)
+        # Graph Encoder chỉ phụ thuộc đồ thị của cửa sổ -> chạy một lần.
+        g_all = model.encode_graph(node_features, edge_index)
     h_state, m_state = model.behavior_memory.init_state(len(uniques), device=device)
+    if state_store is not None:
+        h_state, m_state = state_store.load(uniques, h_state, m_state)
 
     e_parts: list[torch.Tensor] = []
     pred_parts: list[torch.Tensor] = []
@@ -255,9 +529,10 @@ def run_encoder_over_window(
         rows = torch.as_tensor(
             np.flatnonzero(position == step), dtype=torch.long, device=device)
         acc = codes_t[rows]
+        node_index = node_idx_by_row[rows] if graphs is not None else node_idx_by_account[acc]
         out = model(
             x_all[rows], h_state[acc], m_state[acc],
-            node_features, edge_index, node_idx_by_account[acc], g_all=g_all,
+            node_features, edge_index, node_index, g_all=g_all,
         )
         # index_copy KHÔNG tại chỗ: giữ đúng đồ thị tính đạo hàm qua các bước
         h_state = h_state.index_copy(0, acc, out["h_t"])
@@ -265,6 +540,9 @@ def run_encoder_over_window(
         e_parts.append(out["e_t"])
         pred_parts.append(out["e_pred"])
         row_parts.append(rows)
+
+    if state_store is not None:
+        state_store.save(uniques, h_state, m_state)
 
     rows_all = torch.cat(row_parts)
     inverse = torch.empty_like(rows_all)
@@ -280,7 +558,7 @@ def build_prediction_pairs(window: pd.DataFrame) -> tuple[list[int], list[int]]:
     """Cặp (nguồn, đích) trong CÙNG account, liên tiếp trong cửa sổ —
     nguồn dùng predictor(online), đích dùng target network (EMA)."""
     src, tgt = [], []
-    for _, group in window.groupby("account_id", sort=False):
+    for _, group in window.groupby("account_id", sort=False, observed=True):
         idxs = group.index.tolist()
         for i in range(len(idxs) - 1):
             src.append(idxs[i])
@@ -297,7 +575,7 @@ def build_contrastive_triplets(
     """
     account_of = window["account_id"].to_numpy()
     anchors, positives = [], []
-    for _, group in window.groupby("account_id", sort=False):
+    for _, group in window.groupby("account_id", sort=False, observed=True):
         idxs = group.index.tolist()
         if len(idxs) < 2:
             continue
@@ -358,15 +636,47 @@ def train_on_window(
     num_negatives: int,
     rng: random.Random,
     use_graph: bool = True,
+    feature_columns: Sequence[str] = FEATURE_COLUMNS,
+    online_store: BehaviorStateStore | None = None,
+    target_store: BehaviorStateStore | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
+    lambda_vc: float = 0.0,
+    accumulate: int = 1,
+    window_index: int = 1,
+    last_window: bool = True,
 ) -> dict[str, float]:
-    node_features, edge_index, account_to_idx = build_account_graph(window, FEATURE_COLUMNS, use_graph=use_graph)
-    node_features, edge_index = node_features.to(device), edge_index.to(device)
+    """Một bước huấn luyện trên một cửa sổ.
 
-    online_out = run_encoder_over_window(model, window, node_features, edge_index, account_to_idx, device)
+    Giai đoạn 2C (lỗi 6):
+      lambda_vc  > 0: thêm số hạng chống sụp embedding (variance_covariance_loss) — embedding
+                 R3–R5 chỉ dùng ~6–8/128 chiều.
+      accumulate > 1: cộng dồn gradient `accumulate` cửa sổ rồi mới cập nhật, để mỗi lần cập
+                 nhật thấy nhiều vụ rửa tiền hơn (~26 vụ/cửa sổ HI-Small). `window_index` (đếm
+                 từ 1) và `last_window` quyết định khi nào xóa / áp gradient.
+    """
+    graphs = None
+    if graph_buffer is not None:
+        # Đồ thị quá khứ (2B1): dùng chung cho mạng online và EMA, rồi mới nạp
+        # cửa sổ này vào bộ đệm cho các cửa sổ sau.
+        graphs = graph_buffer.window_graphs(window)
+        graph_buffer.append(window)
+        node_features = edge_index = account_to_idx = None
+    else:
+        node_features, edge_index, account_to_idx = build_account_graph(
+            window, list(feature_columns), use_graph=use_graph)
+        node_features, edge_index = node_features.to(device), edge_index.to(device)
+
+    # Online và target network có trọng số KHÁC nhau nên trạng thái của chúng
+    # cũng khác — phải dùng hai store riêng, nếu dùng chung thì cái sau ghi đè
+    # cái trước và cả hai đều nhận trạng thái sai.
+    online_out = run_encoder_over_window(
+        model, window, node_features, edge_index, account_to_idx, device,
+        feature_columns=feature_columns, state_store=online_store, graphs=graphs)
 
     with torch.no_grad():
         target_out = run_encoder_over_window(
-            target.target_encoder, window, node_features, edge_index, account_to_idx, device
+            target.target_encoder, window, node_features, edge_index, account_to_idx, device,
+            feature_columns=feature_columns, state_store=target_store, graphs=graphs,
         )
 
     pred_src, pred_tgt = build_prediction_pairs(window)
@@ -377,7 +687,7 @@ def train_on_window(
         # Không có tài khoản nào lặp lại trong cửa sổ -> không tính được
         # L_pred cho bước này. Trả về loss=0 (không đóng góp gradient),
         # KHÔNG che giấu — được log ở train() để người dùng biết tăng batch_size.
-        e_pred_sel = torch.zeros(1, model.fusion.phi_1.out_features, device=device)
+        e_pred_sel = torch.zeros(1, model.embedding_dim, device=device)
         e_target_sel = e_pred_sel.detach().clone()
 
     anchors, positives, neg_lists = build_contrastive_triplets(window, num_negatives, rng)
@@ -397,7 +707,11 @@ def train_on_window(
 
     bce_logits, bce_labels = None, None
     if "label" in window.columns:
-        valid = window["label"].notna()
+        # Chỉ tính BCE trên vũ trụ chấm điểm. Với PaySim, 31% nhãn dương nằm
+        # trong các giờ mà mô hình KHÔNG có đặc trưng nào để phân biệt (không
+        # có đặc trưng giờ), nên nếu tính cả thì đó là nhãn không học được —
+        # chỉ thêm nhiễu vào gradient. Xem preprocessing.add_eval_universe.
+        valid = window["label"].notna() & pd.Series(scored_mask(window), index=window.index)
         if valid.any():
             valid_idx = window.index[valid].tolist()
             bce_logits = risk_engine.logits(online_out["e"][valid_idx])
@@ -411,16 +725,25 @@ def train_on_window(
         bce_logits=bce_logits, bce_labels=bce_labels,
     )
 
-    optimizer.zero_grad()
-    losses["loss"].backward()
-    torch.nn.utils.clip_grad_norm_(
-        list(model.parameters()) + list(risk_engine.parameters()), max_norm=5.0
-    )
-    optimizer.step()
-    target.update(model)
+    total = losses["loss"]
+    l_vc = torch.tensor(0.0)
+    if lambda_vc > 0:
+        l_vc = variance_covariance_loss(online_out["e"])
+        total = total + lambda_vc * l_vc
+
+    if (window_index - 1) % accumulate == 0:
+        optimizer.zero_grad()
+    (total / accumulate).backward()
+    if window_index % accumulate == 0 or last_window:
+        torch.nn.utils.clip_grad_norm_(
+            list(model.parameters()) + list(risk_engine.parameters()), max_norm=5.0
+        )
+        optimizer.step()
+        target.update(model)
 
     return {
-        "loss": float(losses["loss"].item()),
+        "loss": float(total.item()),
+        "l_vc": float(l_vc.item()),
         "l_pred": float(losses["l_pred"].item()),
         "l_contrast": float(losses["l_contrast"].item()),
         "l_bce": float(losses["l_bce"].item()),
@@ -428,6 +751,22 @@ def train_on_window(
         "n_contrastive_anchors": len(anchors),
         "n_bce_labels": 0 if bce_labels is None else len(bce_labels),
     }
+
+
+def variance_covariance_loss(e: torch.Tensor, eps: float = 1e-4) -> torch.Tensor:
+    """Số hạng chống sụp kiểu VICReg (Bardes và cộng sự, 2022) trên embedding của cửa sổ.
+
+    phương sai: mỗi chiều phải có độ lệch chuẩn ≥ 1 (hinge); hiệp phương sai: phạt bình
+    phương các phần tử ngoài đường chéo (chia cho số chiều) để các chiều không trùng nhau.
+    """
+    if e.shape[0] < 2:
+        return e.new_zeros(())
+    e = e - e.mean(dim=0)
+    std = torch.sqrt(e.var(dim=0) + eps)
+    variance = torch.relu(1.0 - std).mean()
+    cov = (e.T @ e) / (e.shape[0] - 1)
+    off = cov - torch.diag(torch.diagonal(cov))
+    return variance + off.pow(2).sum() / e.shape[1]
 
 
 # --------------------------------------------------------------------------
@@ -454,8 +793,13 @@ def eval_chunk_bounds(n_rows: int, batch_size: int) -> list[tuple[int, int]]:
 def evaluate_auprc(
     model: DRRE, risk_engine: RiskScoringEngine, df_val: pd.DataFrame, device: torch.device,
     use_graph: bool = True, batch_size: int = 8192,
+    feature_columns: Sequence[str] = FEATURE_COLUMNS,
+    state_store: BehaviorStateStore | None = None,
+    graph_buffer: PastGraphBuffer | None = None,
 ) -> float | None:
     """AUPRC trên tập val, chấm THEO LÔ cùng kích thước cửa sổ huấn luyện.
+
+    `graph_buffer` (đồ thị quá khứ) tiếp tục từ cuối tập train, giống state_store.
 
     Trước đây hàm này chấm cả tập trong MỘT lô. Hai vấn đề:
 
@@ -479,15 +823,26 @@ def evaluate_auprc(
     chunk_scores: list[np.ndarray] = []
     for start, stop in eval_chunk_bounds(len(df_sorted), batch_size):
         window = df_sorted.iloc[start:stop].reset_index(drop=True)
-        node_features, edge_index, account_to_idx = build_account_graph(
-            window, FEATURE_COLUMNS, use_graph=use_graph)
-        out = run_encoder_over_window(
-            model, window, node_features.to(device), edge_index.to(device),
-            account_to_idx, device)
+        if graph_buffer is not None:
+            graphs = graph_buffer.window_graphs(window)
+            graph_buffer.append(window)
+            out = run_encoder_over_window(
+                model, window, None, None, None, device, feature_columns=feature_columns,
+                state_store=state_store, graphs=graphs)
+        else:
+            node_features, edge_index, account_to_idx = build_account_graph(
+                window, list(feature_columns), use_graph=use_graph)
+            out = run_encoder_over_window(
+                model, window, node_features.to(device), edge_index.to(device),
+                account_to_idx, device, feature_columns=feature_columns,
+                state_store=state_store)
         chunk_scores.append(risk_engine(out["e"]).cpu().numpy())
 
     scores = np.concatenate(chunk_scores) if chunk_scores else np.empty(0)
-    valid = df_sorted["label"].notna()
+    # Điểm được chấm cho MỌI dòng (đồ thị và lịch sử cần cả các dòng ngoài vũ
+    # trụ), nhưng chỉ số chỉ tính trên vũ trụ chấm điểm — đúng như lúc train.
+    valid = df_sorted["label"].notna() & pd.Series(
+        scored_mask(df_sorted), index=df_sorted.index)
     y_true = df_sorted.loc[valid, "label"].astype(int).to_numpy()
     y_score = scores[valid.to_numpy()]
     if len(set(y_true.tolist())) < 2:
@@ -622,6 +977,22 @@ def train(
     disabled_branches: list[str] | None = None,
     runs_dir: str | Path | None = DEFAULT_RUNS_DIR,
     selection: str = "smoothed",
+    feature_columns: Sequence[str] | None = None,
+    carry_state: bool = False,
+    state_cache: int = DEFAULT_STATE_CACHE,
+    lambda_bce: float | None = None,
+    resume: bool = False,
+    stop_after: int | None = None,
+    arch: str = "v1",
+    scenarios: Sequence[str] | None = None,
+    graph: str = "window",
+    graph_lookback_hours: float = DEFAULT_LOOKBACK_HOURS,
+    graph_block: int = DEFAULT_BLOCK,
+    graph_arch: str = "sage",
+    graph_fanout: int = DEFAULT_FANOUT,
+    graph_layers: int | None = None,
+    lambda_vc: float = 0.0,
+    accumulate: int = 1,
 ) -> None:
     """Huấn luyện DRRE.
 
@@ -631,9 +1002,58 @@ def train(
             lần chạy pytest sẽ để lại rác trong reports/runs/ của dự án.
         selection: cách chọn checkpoint theo val AUPRC — "smoothed" (mặc định,
             trung bình trượt 3 epoch) hoặc "argmax" (hành vi cũ). Xem select_epoch.
+        resume: chạy tiếp từ tệp `resume_state_path(checkpoint_path)` nếu có
+            (chưa có thì bắt đầu mới). Trạng thái được ghi sau MỖI epoch, kể cả
+            khi không bật cờ này, nên một lần chạy bị ngắt luôn chạy tiếp được.
+        stop_after: dừng sau bấy nhiêu epoch trong phiên này (None = chạy hết).
+            Manifest chỉ được ghi khi đã chạy đủ `epochs`.
+        arch: "v1" (DRRE gốc) hoặc "v2" (tầng chấm điểm đã sửa, src/drre/model_v2.py).
+        scenarios: mô-đun đặc trưng kịch bản (src/data/scenarios) được gắn thêm, vd.
+            ["mule_chain", "cross_bank_fx", "cycle"]. Khi có, bộ đặc trưng gốc bỏ
+            DROPPED_BASE_FEATURES — đúng bộ đã chốt ở R1.
+        graph: "window" (đồ thị cả cửa sổ, nhìn trước tối đa một cửa sổ) hoặc "past"
+            (Giai đoạn 2B1: mỗi khối `graph_block` dòng chỉ thấy cạnh trong
+            `graph_lookback_hours` giờ TRƯỚC nó, src/drre/past_graph.py). "past" cần
+            carry_state vì bộ đệm cạnh chỉ đúng khi cửa sổ chạy theo thứ tự thời gian.
+        graph_arch: "sage" (GraphSAGE một chiều, đọc theo người gửi) hoặc "edge" (Giai đoạn
+            2B2–2B5: hai chiều, đặc trưng cạnh, đọc theo cạnh; cần arch v2 và graph "past").
+        graph_fanout: với "edge", số cạnh vào/ra gần nhất mỗi nút được truyền tin.
+        graph_layers: số lớp truyền tin (None = theo config, mặc định 2).
+        lambda_vc: trọng số số hạng chống sụp embedding (Giai đoạn 2C; 0 = tắt).
+        accumulate: cộng dồn gradient bấy nhiêu cửa sổ mỗi lần cập nhật (2C; 1 = tắt).
     """
+    if accumulate < 1 or lambda_vc < 0:
+        raise ValueError("accumulate phải >= 1 và lambda_vc >= 0")
+    if arch not in ARCHES:
+        raise ValueError(f"arch phải thuộc {ARCHES}, nhận {arch!r}")
+    if graph not in GRAPH_MODES:
+        raise ValueError(f"graph phải thuộc {GRAPH_MODES}, nhận {graph!r}")
+    if graph == "past" and not carry_state:
+        raise ValueError("graph='past' cần carry_state=True (cửa sổ phải theo thứ tự thời gian)")
+    if graph == "past" and not use_graph:
+        raise ValueError("graph='past' mâu thuẫn với use_graph=False")
+    if graph_arch not in GRAPH_ARCHES:
+        raise ValueError(f"graph_arch phải thuộc {GRAPH_ARCHES}, nhận {graph_arch!r}")
+    if graph_arch == "edge" and (arch != "v2" or graph != "past"):
+        raise ValueError("graph_arch='edge' cần arch='v2' và graph='past'")
+    scenarios = list(scenarios or [])
     if selection not in SELECTION_MODES:
         raise ValueError(f"selection phải thuộc {SELECTION_MODES}, nhận {selection!r}")
+    if stop_after is not None and stop_after < 1:
+        raise ValueError(f"stop_after phải >= 1, nhận {stop_after}")
+    resume_path = resume_state_path(checkpoint_path)
+    resume_state = None
+    if resume_path.exists():
+        if not resume:
+            raise FileExistsError(
+                f"Đã có trạng thái chạy dở {resume_path}. Thêm --resume để chạy tiếp, hoặc "
+                "xóa tệp đó nếu thật sự muốn huấn luyện lại từ đầu (sẽ mất các epoch đã chạy).")
+        resume_state = torch.load(resume_path, map_location="cpu")
+        # Định dạng 1 (trước Giai đoạn 2A) chỉ có DRRE v1 và vẫn đọc được bình thường.
+        if resume_state.get("format") not in (RESUME_FORMAT, *(() if arch == "v2" else (1,))):
+            raise ValueError(
+                f"{resume_path} có định dạng {resume_state.get('format')!r}, mã hiện tại cần "
+                f"{RESUME_FORMAT} — không nạp được.")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
     torch.manual_seed(seed)
     rng = random.Random(seed)
@@ -644,11 +1064,17 @@ def train(
     hidden_dim = drre_cfg.get("behavior_memory", {}).get("hidden_dim", 64)
     num_slots = drre_cfg.get("behavior_memory", {}).get("num_slots", 4)
     graph_hidden_dim = drre_cfg.get("graph_encoder", {}).get("hidden_dim", 64)
-    graph_num_layers = drre_cfg.get("graph_encoder", {}).get("num_layers", 2)
+    graph_num_layers = graph_layers or drre_cfg.get("graph_encoder", {}).get("num_layers", 2)
     embedding_dim = drre_cfg.get("fusion", {}).get("embedding_dim", 128)
     ema_decay = drre_cfg.get("loss", {}).get("ema_decay", 0.996)
     lambda_contrast = drre_cfg.get("loss", {}).get("lambda_contrast", 0.5)
-    lambda_bce = drre_cfg.get("loss", {}).get("lambda_bce", 0.3)
+    # Trọng số của nhánh có giám sát. Mặc định trong config là 0,3 — thấp hơn
+    # lambda_contrast (0,5), nên tín hiệu NHÃN bị lấn bởi hai mất mát tự giám
+    # sát. Đây là một nghi vấn cần đo, không phải hằng số bất biến: trên
+    # IEEE-CIS, Logistic với đúng 2 đặc trưng đạt 0,1010 còn DRRE chỉ 0,0900-0,0970,
+    # và risk_engine CHỈ học được qua số hạng BCE này.
+    if lambda_bce is None:
+        lambda_bce = drre_cfg.get("loss", {}).get("lambda_bce", 0.3)
     temperature = drre_cfg.get("loss", {}).get("contrastive_temperature", 0.1)
 
     train_path = Path(processed_dir) / f"{source}_train.parquet"
@@ -658,21 +1084,80 @@ def train(
             f"Không tìm thấy {train_path}. Chạy trước: python -m src.data.preprocessing "
             f"--source {source} --raw-path data/raw/{source}.csv --output {processed_dir}"
         )
-    df_train = pd.read_parquet(train_path)
-    df_val = pd.read_parquet(val_path) if val_path.exists() else None
+    # Bỏ các cột không bao giờ dùng khi huấn luyện: với HI-Medium (22 triệu dòng) các cột chuỗi
+    # và mảng Python này tốn ~7–8 GB RAM, đủ để tiến trình hết bộ nhớ (đo 15/11: 20 GB).
+    def _read(path: Path) -> pd.DataFrame:
+        import pyarrow.parquet as pq
 
-    missing = set(FEATURE_COLUMNS) - set(df_train.columns)
+        names = pq.read_schema(path).names
+        return pd.read_parquet(path, columns=[c for c in names if c not in TRAIN_UNUSED_COLUMNS])
+
+    df_train = _read(train_path)
+    df_val = _read(val_path) if val_path.exists() else None
+
+    feature_cols = features_for(source, feature_columns, available=df_train.columns)
+    if scenarios:
+        from src.data.scenarios import DROPPED_BASE_FEATURES, features_of
+        from src.data.scenarios.store import attach_scenarios
+
+        if not feature_columns:
+            feature_cols = [c for c in feature_cols if c not in DROPPED_BASE_FEATURES]
+        feature_cols += [c for c in features_of(scenarios) if c not in feature_cols]
+        # Gắn ngay sau khi đọc, TRƯỚC mọi phép sắp xếp: file kịch bản thẳng hàng theo dòng gốc.
+        df_train = attach_scenarios(df_train, train_path, feature_cols)
+        if df_val is not None:
+            df_val = attach_scenarios(df_val, val_path, feature_cols)
+    missing = set(feature_cols) - set(df_train.columns)
     if missing:
         raise ValueError(f"Dữ liệu thiếu cột đặc trưng: {missing}. Chạy lại preprocessing.py.")
+    if not feature_cols:
+        raise ValueError(
+            f"Không còn đặc trưng nào dùng được cho nguồn '{source}'. Chạy lại preprocessing.py.")
     time_col = "step" if "step" in df_train.columns else "timestamp"
+    # Mô hình, chuẩn hóa và đồ thị đều đọc đặc trưng bằng to_numpy(float32): lưu float32 ngay
+    # từ đầu cho kết quả giống hệt mà tốn nửa bộ nhớ (HI-Medium: ~2,4 GB).
+    for frame in (df_train, df_val):
+        if frame is None:
+            continue
+        for column in feature_cols:
+            if frame[column].dtype == np.float64:
+                frame[column] = frame[column].astype(np.float32)
+    df_train = _time_sorted_view(df_train, time_col)
+    logger.info("Đặc trưng đầu vào (%d): %s", len(feature_cols), feature_cols)
 
-    input_dim = len(FEATURE_COLUMNS)
-    model = DRRE(
+    # Vũ trụ chấm điểm: bao nhiêu dòng/nhãn dương thực sự đi vào mất mát BCE.
+    universe = scored_mask(df_train)
+    if not universe.all():
+        n_pos_all = int(df_train["label"].sum()) if "label" in df_train.columns else 0
+        n_pos_universe = int(df_train.loc[universe, "label"].sum()) if n_pos_all else 0
+        logger.info(
+            "Vũ trụ chấm điểm: %d/%d dòng (%.1f%%), %d/%d nhãn dương. Các dòng ngoài vũ trụ "
+            "VẪN được dùng để dựng lịch sử và đồ thị, chỉ không tính vào BCE/chỉ số.",
+            int(universe.sum()), len(df_train), 100 * universe.mean(),
+            n_pos_universe, n_pos_all,
+        )
+
+    input_dim = len(feature_cols)
+    model_config = dict(
         input_dim=input_dim, hidden_dim=hidden_dim, num_slots=num_slots,
         graph_hidden_dim=graph_hidden_dim, graph_num_layers=graph_num_layers,
         embedding_dim=embedding_dim,
-    ).to(device)
-    risk_engine = RiskScoringEngine(embedding_dim=embedding_dim).to(device)
+    )
+    if arch == "v2":
+        model_config.update(arch="v2", feature_columns=list(feature_cols), risk_hidden=RISK_HIDDEN)
+    if graph == "past":
+        model_config.update(graph_mode="past", graph_lookback_hours=float(graph_lookback_hours),
+                            graph_block=int(graph_block))
+    if graph_arch == "edge":
+        model_config.update(graph_arch="edge", graph_fanout=int(graph_fanout))
+    model = build_drre(model_config).to(device)
+    risk_engine = build_risk_engine(model_config).to(device)
+    if arch == "v2":
+        # Thống kê chuẩn hóa chỉ học trên TRAIN, và phải có trước khi tạo mạng EMA
+        # (bản sao sâu) để hai mạng dùng cùng thống kê. Lấy mẫu để không nhân đôi RAM.
+        rows = np.random.default_rng(seed).choice(
+            len(df_train), size=min(len(df_train), NORMALIZER_SAMPLE), replace=False)
+        model.fit_normalizer(df_train[feature_cols].to_numpy(dtype=np.float32)[np.sort(rows)])
 
     # Tắt nhánh PHẢI làm trước khi tạo target network (EMA sao chép cả mặt nạ).
     disabled = set(disabled_branches or [])
@@ -683,24 +1168,34 @@ def train(
         logger.info("Tắt nhánh: %s | dựng đồ thị: %s", sorted(disabled), use_graph)
     target = EMATargetEncoder(model, decay=ema_decay)
 
-    pos_rate = float(df_train["label"].mean()) if "label" in df_train.columns else 0.0
+    # pos_weight phải tính trên ĐÚNG tập dòng mà BCE nhìn thấy (vũ trụ chấm
+    # điểm), không phải trên cả tập train — hai tỷ lệ này lệch 1,5 lần với
+    # PaySim, nên dùng sai sẽ đặt sai trọng số lớp dương.
+    pos_rate = (
+        float(df_train.loc[universe, "label"].mean()) if "label" in df_train.columns else 0.0
+    )
     pos_weight = (1.0 - pos_rate) / pos_rate if 0.0 < pos_rate < 1.0 else None
     if pos_weight is not None:
         logger.info(
             "Tỷ lệ nhãn dương trên tập train = %.4f%% -> pos_weight = %.1f",
             pos_rate * 100, pos_weight,
         )
+    online_store = target_store = None
+    if carry_state:
+        online_store = BehaviorStateStore(hidden_dim, num_slots, capacity=state_cache)
+        target_store = BehaviorStateStore(hidden_dim, num_slots, capacity=state_cache)
+        logger.warning(
+            "Bật mang trạng thái Behavior Memory qua cửa sổ (bộ đệm %d tài khoản/store, "
+            "≈%.0f MB cho cả hai). ĐÃ TẮT xáo trộn thứ tự cửa sổ: mang trạng thái chỉ "
+            "đúng khi các cửa sổ chạy theo đúng thứ tự thời gian.",
+            state_cache, 2 * state_cache * hidden_dim * (1 + num_slots) * 4 / 1e6,
+        )
+
     loss_fn = DRRECompositeLoss(
         lambda_contrast=lambda_contrast, lambda_bce=lambda_bce, pos_weight=pos_weight,
     ).to(device)
     optimizer = torch.optim.Adam(
         list(model.parameters()) + list(risk_engine.parameters()), lr=lr
-    )
-
-    model_config = dict(
-        input_dim=input_dim, hidden_dim=hidden_dim, num_slots=num_slots,
-        graph_hidden_dim=graph_hidden_dim, graph_num_layers=graph_num_layers,
-        embedding_dim=embedding_dim,
     )
 
     # Manifest thí nghiệm: gắn commit, phiên bản dữ liệu, seed và siêu tham số
@@ -714,12 +1209,22 @@ def train(
         hyperparameters={
             "epochs": epochs, "batch_size": batch_size, "lr": lr,
             "num_negatives": num_negatives, "use_graph": use_graph,
-            "disabled_branches": sorted(disabled), "feature_columns": list(FEATURE_COLUMNS),
+            "disabled_branches": sorted(disabled), "feature_columns": list(feature_cols),
+            "scored_rows": int(universe.sum()), "total_rows": len(df_train),
             "model_config": model_config, "pos_weight": pos_weight,
             "lambda_contrast": lambda_contrast, "lambda_bce": lambda_bce,
             "ema_decay": ema_decay, "contrastive_temperature": temperature,
             "config_path": config_path, "checkpoint_path": checkpoint_path,
             "selection": selection, "smooth_window": SMOOTH_WINDOW,
+            "carry_state": carry_state,
+            "state_cache": state_cache if carry_state else None,
+            "shuffle_windows": not carry_state,
+            # Chỉ ghi khi khác mặc định: trạng thái chạy dở của các lần chạy v1 cũ
+            # không có hai khóa này và vẫn phải chạy tiếp được.
+            **({"arch": arch} if arch != "v1" else {}),
+            **({"scenarios": scenarios} if scenarios else {}),
+            **({"lambda_vc": lambda_vc} if lambda_vc else {}),
+            **({"accumulate": accumulate} if accumulate != 1 else {}),
         },
         data={
             "train_file": {**file_fingerprint(train_path), **dataframe_summary(df_train)},
@@ -733,6 +1238,11 @@ def train(
     extra = {
         "use_graph": use_graph,
         "disabled_branches": sorted(disabled),
+        # Dashboard/evaluate đọc khóa này để chấm điểm bằng ĐÚNG bộ đặc trưng
+        # đã huấn luyện — xem scoring_service.try_load_drre_checkpoint.
+        "feature_columns": list(feature_cols),
+        "carry_state": carry_state,
+        "scenarios": scenarios,
         "run": manifest.checkpoint_fields(),
     }
 
@@ -740,30 +1250,117 @@ def train(
     # CPU (56k tham số ≈ 0,2 MB/bản) để còn ghi được epoch ở GIỮA cửa sổ trượt.
     snapshots: deque[tuple[int, float, dict, dict]] = deque(maxlen=SMOOTH_WINDOW)
     best_score, best_epoch = float("-inf"), None
-    for epoch in range(1, epochs + 1):
-        n_windows, windows = iter_time_windows(df_train, batch_size, time_col, rng)
+    start_epoch, elapsed_before = 1, 0.0
+    session = {"started_utc": manifest.started_utc, "git": manifest.git, "epochs": []}
+    if resume_state is not None:
+        saved = resume_state["manifest"]
+        # `epochs` được phép TĂNG khi chạy tiếp (đường val còn đi lên thì chạy
+        # thêm) — nó chỉ là điểm dừng, không đổi bản chất các epoch đã chạy.
+        # Mọi siêu tham số khác phải giữ nguyên.
+        saved_epochs = saved["hyperparameters"].get("epochs")
+        mismatches = _resume_mismatches(
+            {k: v for k, v in saved["hyperparameters"].items() if k != "epochs"},
+            {k: v for k, v in manifest.hyperparameters.items() if k != "epochs"})
+        mismatches += _resume_mismatches(
+            {k: v.get("sha256") for k, v in saved["data"].items()},
+            {k: v.get("sha256") for k, v in manifest.data.items()})
+        if mismatches:
+            raise ValueError(
+                f"Cấu hình hoặc dữ liệu khác với lúc bắt đầu {resume_path} — không chạy tiếp "
+                "được:\n  " + "\n  ".join(mismatches))
+        if resume_state["next_epoch"] > epochs:
+            logger.info("%s đã chạy đủ %d epoch (run_id=%s) — không còn gì để chạy.",
+                        resume_path, epochs, saved["run_id"])
+            return
+        model.load_state_dict(resume_state["model"])
+        risk_engine.load_state_dict(resume_state["risk_engine"])
+        target.target_encoder.load_state_dict(resume_state["target"])
+        optimizer.load_state_dict(resume_state["optimizer"])
+        rng.setstate(resume_state["python_rng"])
+        torch.set_rng_state(resume_state["torch_rng"])
+        snapshots.extend(resume_state["snapshots"])
+        best_score, best_epoch = resume_state["best_score"], resume_state["best_epoch"]
+        start_epoch, elapsed_before = resume_state["next_epoch"], resume_state["elapsed_seconds"]
+        manifest.run_id, manifest.started_utc = saved["run_id"], saved["started_utc"]
+        manifest.results, manifest.notes = saved["results"], saved["notes"]
+        if saved_epochs != epochs:
+            manifest.notes.append(
+                f"Số epoch đổi từ {saved_epochs} thành {epochs} khi chạy tiếp từ epoch "
+                f"{start_epoch} — các epoch đã chạy giữ nguyên.")
+        extra["run"] = manifest.checkpoint_fields()
+        logger.info("Chạy tiếp %s từ epoch %d/%d (đã chạy %.1f giờ ở các phiên trước).",
+                    manifest.run_id, start_epoch, epochs, elapsed_before / 3600)
 
-        epoch_stats = {"loss": 0.0, "l_pred": 0.0, "l_contrast": 0.0, "l_bce": 0.0}
+    prior_sessions = list(manifest.results.get("sessions", []))
+
+    def _elapsed() -> float:
+        return elapsed_before + time.monotonic() - started
+
+    for epoch in range(start_epoch, epochs + 1):
+        # rng=None -> giữ nguyên thứ tự thời gian của các cửa sổ, bắt buộc khi
+        # mang trạng thái qua cửa sổ (xem BehaviorStateStore).
+        n_windows, windows = iter_time_windows(
+            df_train, batch_size, time_col, None if carry_state else rng)
+        if online_store is not None:
+            online_store.reset()
+            target_store.reset()
+        # Bộ đệm cạnh làm mới mỗi epoch, giống trạng thái Behavior Memory.
+        graph_buffer = (PastGraphBuffer(feature_cols, graph_lookback_hours, graph_block,
+                                        graph_num_layers, arch=graph_arch, fanout=graph_fanout)
+                        if graph == "past" else None)
+
+        epoch_stats = {"loss": 0.0, "l_pred": 0.0, "l_contrast": 0.0, "l_bce": 0.0, "l_vc": 0.0}
         n_windows_no_pred_pairs = 0
+        n_windows_no_bce = 0
         model.train()
-        for window in windows:
+        epoch_started = time.monotonic()
+        for i_window, window in enumerate(windows, start=1):
+            if i_window % PROGRESS_EVERY == 0:
+                spent = time.monotonic() - epoch_started
+                logger.info(
+                    "Epoch %d | cửa sổ %d/%d (%.0f%%) | %.1f phút | còn khoảng %.1f phút",
+                    epoch, i_window, n_windows, 100 * i_window / max(1, n_windows),
+                    spent / 60, spent / i_window * (n_windows - i_window) / 60)
             stats = train_on_window(
                 model, risk_engine, target, loss_fn, optimizer, window, device, num_negatives, rng,
-                use_graph=use_graph,
+                use_graph=use_graph, feature_columns=feature_cols,
+                online_store=online_store, target_store=target_store,
+                graph_buffer=graph_buffer, lambda_vc=lambda_vc, accumulate=accumulate,
+                window_index=i_window, last_window=i_window == n_windows,
             )
             for k in epoch_stats:
                 epoch_stats[k] += stats[k]
             if stats["n_pred_pairs"] == 0:
                 n_windows_no_pred_pairs += 1
+            if stats["n_bce_labels"] == 0:
+                n_windows_no_bce += 1
 
         n = max(1, n_windows)
         logger.info(
-            "Epoch %d/%d | loss=%.4f l_pred=%.4f l_contrast=%.4f l_bce=%.4f | "
+            "Epoch %d/%d | loss=%.4f l_pred=%.4f l_contrast=%.4f l_bce=%.4f l_vc=%.4f | "
             "%d/%d cửa sổ không có cặp L_pred (tăng --batch-size nếu tỷ lệ này cao)",
             epoch, epochs, epoch_stats["loss"] / n, epoch_stats["l_pred"] / n,
-            epoch_stats["l_contrast"] / n, epoch_stats["l_bce"] / n,
+            epoch_stats["l_contrast"] / n, epoch_stats["l_bce"] / n, epoch_stats["l_vc"] / n,
             n_windows_no_pred_pairs, n_windows,
         )
+        if online_store is not None:
+            # Tỷ lệ "gặp lại": bao nhiêu phần trăm tài khoản trong một cửa sổ đã
+            # có trạng thái từ cửa sổ trước. Đây chính là con số nói Behavior
+            # Memory có dữ liệu để nhớ hay không — trước đây nó bằng 0 tuyệt đối.
+            logger.info(
+                "Epoch %d | Behavior Memory gặp lại %.1f%% tài khoản (%d/%d lượt tra), "
+                "%d lần đẩy khỏi bộ đệm",
+                epoch, 100 * online_store.hit_rate, online_store.hits,
+                online_store.lookups, online_store.evictions,
+            )
+        if n_windows_no_bce:
+            # Mặt nạ vũ trụ chấm điểm có thể làm một cửa sổ không còn nhãn nào
+            # (vd. cửa sổ nằm trọn trong giờ bị loại của PaySim). Vài cửa sổ là
+            # bình thường; gần hết thì mặt nạ đang sai và BCE không được học.
+            level = logger.warning if n_windows_no_bce > 0.5 * n_windows else logger.info
+            level("Epoch %d | %d/%d cửa sổ không có nhãn nào trong vũ trụ chấm điểm "
+                  "(BCE không đóng góp gradient ở các cửa sổ đó)",
+                  epoch, n_windows_no_bce, n_windows)
 
         epoch_record = {
             "epoch": epoch,
@@ -771,15 +1368,22 @@ def train(
             "l_pred": epoch_stats["l_pred"] / n,
             "l_contrast": epoch_stats["l_contrast"] / n,
             "l_bce": epoch_stats["l_bce"] / n,
+            "l_vc": epoch_stats["l_vc"] / n,
             "n_windows": n_windows,
             "n_windows_no_pred_pairs": n_windows_no_pred_pairs,
-            "seconds_elapsed": round(time.monotonic() - started, 1),
+            "n_windows_no_bce": n_windows_no_bce,
+            "state_hit_rate": (None if online_store is None else online_store.hit_rate),
+            "seconds_elapsed": round(_elapsed(), 1),
         }
 
         if df_val is not None:
             model.eval()
             auprc = evaluate_auprc(
-                model, risk_engine, df_val, device, use_graph=use_graph, batch_size=batch_size)
+                model, risk_engine, df_val, device, use_graph=use_graph, batch_size=batch_size,
+                feature_columns=feature_cols,
+                # Tập val nằm SAU tập train theo thời gian, nên nó được phép
+                # tiếp tục trạng thái cuối của train — đúng như hệ thống thật.
+                state_store=online_store, graph_buffer=graph_buffer)
             if auprc is not None:
                 epoch_record["val_auprc"] = auprc
                 logger.info("Epoch %d | Val AUPRC = %.4f", epoch, auprc)
@@ -802,6 +1406,36 @@ def train(
                     )
 
         manifest.results["epochs"].append(epoch_record)
+
+        session["epochs"].append(epoch)
+        session["finished_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        manifest.results["sessions"] = [*prior_sessions, dict(session, epochs=list(session["epochs"]))]
+        _save_resume_state(resume_path, {
+            "format": RESUME_FORMAT,
+            "next_epoch": epoch + 1,
+            "elapsed_seconds": _elapsed(),
+            "model": _cpu_state(model),
+            "risk_engine": _cpu_state(risk_engine),
+            "target": _cpu_state(target.target_encoder),
+            "optimizer": optimizer.state_dict(),
+            "python_rng": rng.getstate(),
+            "torch_rng": torch.get_rng_state(),
+            "snapshots": list(snapshots),
+            "best_score": best_score,
+            "best_epoch": best_epoch,
+            "manifest": {
+                "run_id": manifest.run_id, "started_utc": manifest.started_utc,
+                "hyperparameters": manifest.hyperparameters, "data": manifest.data,
+                "results": manifest.results, "notes": manifest.notes,
+            },
+        })
+        if epoch < epochs and stop_after is not None and len(session["epochs"]) >= stop_after:
+            logger.info(
+                "Dừng phiên sau epoch %d/%d theo --stop-after %d (phiên này %.1f giờ). Chạy "
+                "lại ĐÚNG lệnh cũ kèm --resume để tiếp tục từ epoch %d. Trạng thái: %s",
+                epoch, epochs, stop_after, (time.monotonic() - started) / 3600, epoch + 1,
+                resume_path)
+            return
 
     if best_epoch is None and snapshots:
         # Chưa đủ SMOOTH_WINDOW epoch val để tính trung bình trượt -> rơi về argmax
@@ -838,6 +1472,8 @@ def train(
         logger.info("Không có tập val gắn nhãn — đã lưu checkpoint sau epoch cuối -> %s", checkpoint_path)
 
     manifest.finish(started)
+    # Thời lượng là tổng các phiên, không chỉ phiên cuối.
+    manifest.duration_seconds = round(_elapsed(), 1)
     if runs_dir is None:
         logger.info("Không ghi manifest (runs_dir=None) — run_id=%s, %.0fs",
                     manifest.run_id, manifest.duration_seconds or 0.0)
@@ -880,7 +1516,9 @@ def _save_state_dicts(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Huấn luyện DRRE (Module 3′)")
-    parser.add_argument("--source", required=True, choices=["paysim", "ieee_cis", "synthetic_vn"])
+    parser.add_argument(
+        "--source", required=True,
+        choices=["paysim", "ieee_cis", "synthetic_vn", "amlworld", "transxion"])
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=128,
                          help="Kích thước cửa sổ thời gian (không phải batch ngẫu nhiên)")
@@ -897,13 +1535,76 @@ def main() -> None:
                              f"trung bình trượt có tâm {SMOOTH_WINDOW} epoch nên không chọn theo "
                              "một đỉnh nhiễu, nhưng epoch đầu và epoch cuối không được chọn. "
                              "'argmax' là hành vi cũ (lấy val AUPRC cao nhất).")
+    parser.add_argument("--features", default=None, metavar="COT1,COT2",
+                        help="Ghi đè danh sách đặc trưng đầu vào (cách nhau bằng dấu phẩy). "
+                             "Mặc định lấy theo nguồn từ FEATURES_BY_SOURCE. Ví dụ dùng để "
+                             "ablation cột rò rỉ của PaySim: --features amount_norm")
+    parser.add_argument(
+        "--lambda-bce", type=float, default=None,
+        help="Ghi đè trọng số mất mát có giám sát (mặc định lấy từ config, 0.3). "
+             "risk_engine chỉ học qua số hạng này, nên đây là tham số đáng quét.")
+    parser.add_argument(
+        "--carry-state", action="store_true",
+        help="Mang trạng thái Behavior Memory qua các cửa sổ theo account_id. Bật cái này "
+             "thì thứ tự cửa sổ KHÔNG còn được xáo trộn (bắt buộc, nếu không sẽ rò rỉ "
+             "tương lai). Không bật thì bộ nhớ hành vi chỉ dài bằng một cửa sổ — với "
+             "PaySim cửa sổ 32.768 chỉ 2,1%% giao dịch gian lận có lịch sử trong cửa sổ.")
+    parser.add_argument(
+        "--state-cache", type=int, default=DEFAULT_STATE_CACHE,
+        help=f"Số tài khoản tối đa giữ trạng thái (mặc định {DEFAULT_STATE_CACHE}, "
+             "≈192 MB mỗi store, có hai store).")
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="Chạy tiếp từ <checkpoint>.resume.pt (ghi sau MỖI epoch). Phải dùng ĐÚNG các "
+             "tham số của lần đầu — khác siêu tham số hay dữ liệu thì bị từ chối. Riêng "
+             "--epochs được phép tăng để chạy thêm.")
+    parser.add_argument(
+        "--stop-after", type=int, default=None, metavar="N",
+        help="Dừng sau N epoch trong phiên này để chia lần huấn luyện dài thành nhiều phiên. "
+             "Vd. --epochs 5 --stop-after 1, rồi lặp lại lệnh kèm --resume.")
+    parser.add_argument(
+        "--keep-awake", action="store_true",
+        help="Chỉ Windows: xin hệ điều hành không ngủ khi rảnh trong lúc huấn luyện "
+             "(SetThreadExecutionState). Không đổi cài đặt nguồn; tự hết khi tiến trình thoát.")
     parser.add_argument("--no-graph", action="store_true",
                          help="Không dựng đồ thị, tắt nhánh đồ thị — bắt buộc với nguồn không có "
                               "người nhận (ieee_cis)")
+    parser.add_argument("--arch", default="v1", choices=list(ARCHES),
+                        help="v1 = DRRE gốc; v2 = tầng chấm điểm đã sửa (Giai đoạn 2A).")
+    parser.add_argument("--scenarios", default="", metavar="MO_DUN1,MO_DUN2",
+                        help="Gắn đặc trưng kịch bản, vd. mule_chain,cross_bank_fx,cycle (bộ đã "
+                             "chốt ở R1). Cần chạy scripts/build_scenarios.py trước.")
+    parser.add_argument("--graph", default="window", choices=list(GRAPH_MODES),
+                        help="window = đồ thị cả cửa sổ (cũ, nhìn trước trong cửa sổ); past = "
+                             "Giai đoạn 2B1, mỗi khối chỉ thấy cạnh quá khứ. 'past' cần --carry-state.")
+    parser.add_argument("--graph-lookback-hours", type=float, default=DEFAULT_LOOKBACK_HOURS,
+                        help="Đồ thị quá khứ: nhìn lại bấy nhiêu giờ (mặc định %(default)s).")
+    parser.add_argument("--graph-block", type=int, default=DEFAULT_BLOCK,
+                        help="Đồ thị quá khứ: số dòng mỗi khối dùng chung một đồ thị "
+                             "(mặc định %(default)s).")
+    parser.add_argument("--graph-arch", default="sage", choices=list(GRAPH_ARCHES),
+                        help="sage = GraphSAGE một chiều (cũ); edge = Giai đoạn 2B2–2B5: hai chiều, "
+                             "đặc trưng cạnh, đọc theo cạnh (cần --arch v2 --graph past).")
+    parser.add_argument("--graph-fanout", type=int, default=DEFAULT_FANOUT,
+                        help="graph-arch edge: số cạnh vào/ra gần nhất mỗi nút (mặc định "
+                             "%(default)s).")
+    parser.add_argument("--graph-layers", type=int, default=None,
+                        help="Số lớp truyền tin (mặc định theo config).")
+    parser.add_argument("--lambda-vc", type=float, default=0.0,
+                        help="Giai đoạn 2C: trọng số số hạng chống sụp embedding (phương sai + "
+                             "hiệp phương sai kiểu VICReg). 0 = tắt.")
+    parser.add_argument("--accumulate", type=int, default=1,
+                        help="Giai đoạn 2C: cộng dồn gradient bấy nhiêu cửa sổ mỗi lần cập nhật.")
     parser.add_argument("--disable-branch", action="append", default=[],
                          choices=["transaction", "behavior", "graph"],
                          help="Tắt một nhánh để làm ablation, vd. --disable-branch behavior")
     args = parser.parse_args()
+
+    if args.keep_awake and os.name == "nt":
+        import ctypes
+
+        es_continuous, es_system_required = 0x80000000, 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(es_continuous | es_system_required)
 
     train(
         source=args.source, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
@@ -911,6 +1612,16 @@ def main() -> None:
         processed_dir=args.processed_dir, checkpoint_path=args.checkpoint, seed=args.seed,
         use_graph=not args.no_graph, disabled_branches=args.disable_branch,
         runs_dir=args.runs_dir or None, selection=args.select,
+        feature_columns=(
+            [c.strip() for c in args.features.split(",") if c.strip()] if args.features else None
+        ),
+        carry_state=args.carry_state, state_cache=args.state_cache,
+        lambda_bce=args.lambda_bce, resume=args.resume, stop_after=args.stop_after,
+        arch=args.arch, scenarios=[s.strip() for s in args.scenarios.split(",") if s.strip()],
+        graph=args.graph, graph_lookback_hours=args.graph_lookback_hours,
+        graph_block=args.graph_block, graph_arch=args.graph_arch,
+        graph_fanout=args.graph_fanout, graph_layers=args.graph_layers,
+        lambda_vc=args.lambda_vc, accumulate=args.accumulate,
     )
 
 

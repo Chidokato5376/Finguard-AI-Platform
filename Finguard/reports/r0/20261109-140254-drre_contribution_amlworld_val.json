@@ -1,0 +1,148 @@
+{
+  "kind": "drre_contribution_amlworld_val",
+  "run_id": "20261109-140254-drre_contribution_amlworld_val",
+  "started_utc": "2026-11-09T14:02:53+00:00",
+  "finished_utc": "2026-11-09T14:02:54+00:00",
+  "duration_seconds": -1793265251.1,
+  "device": "cpu",
+  "seed": 42,
+  "hyperparameters": {
+    "checkpoint": "models/drre_aml_probe.pt",
+    "window": 32768,
+    "pca_dim": 16,
+    "bootstrap": 150,
+    "stateful": true
+  },
+  "data": {
+    "train_file": {
+      "path": "data\\processed_aml\\amlworld_train.parquet",
+      "exists": true,
+      "bytes": 179620447,
+      "modified_utc": "2026-10-19T16:40:44+00:00",
+      "sha256": "adb720e2ac226a696547e5cbf832f8f4",
+      "hash_scope": "full"
+    },
+    "eval_file": {
+      "path": "data\\processed_aml\\amlworld_val.parquet",
+      "exists": true,
+      "bytes": 42599991,
+      "modified_utc": "2026-10-19T16:40:45+00:00",
+      "sha256": "e5311cf0d91c3661daf121573e491399",
+      "hash_scope": "full",
+      "n_rows": 761585,
+      "columns": [
+        "amount_norm",
+        "channel_encoded",
+        "log_n_prior",
+        "log_gap",
+        "z_amount",
+        "log_amount_ratio",
+        "new_counterparty",
+        "log_n_distinct_cp",
+        "log_n_prior_as_cp",
+        "log_n_distinct_senders",
+        "is_round_amount",
+        "hour_sin",
+        "hour_cos",
+        "dow",
+        "account_id",
+        "counterparty_id",
+        "timestamp",
+        "label",
+        "eval_universe"
+      ],
+      "n_positive": 760,
+      "positive_rate": 0.0009979188140522726,
+      "time_col": "timestamp",
+      "time_min": "2022-09-07 14:52:00",
+      "time_max": "2022-09-09 03:14:00",
+      "n_accounts": 137189
+    }
+  },
+  "results": {
+    "base_rate": 0.0010367132914828547,
+    "drre_alone_auprc": 0.24022676587631597,
+    "pca_explained_variance": 0.9896575941462237,
+    "gbdt": {
+      "auprc": 0.42806651600180523,
+      "n_iter": 50,
+      "caught@500": 290,
+      "caught@1000": 324,
+      "caught@2000": 384
+    },
+    "gbdt+diem_drre": {
+      "auprc": 0.42221543517934196,
+      "n_iter": 55,
+      "caught@500": 306,
+      "caught@1000": 340,
+      "caught@2000": 394,
+      "minus_gbdt": -0.005851080822463273,
+      "ci95_minus_gbdt": {
+        "lo": -0.03499629324482765,
+        "hi": 0.02078032057927872,
+        "share_positive": 0.41333333333333333
+      }
+    },
+    "gbdt+emb_drre": {
+      "auprc": 0.4288186260245377,
+      "n_iter": 57,
+      "caught@500": 282,
+      "caught@1000": 323,
+      "caught@2000": 384,
+      "minus_gbdt": 0.0007521100227324551,
+      "ci95_minus_gbdt": {
+        "lo": -0.01699056640850216,
+        "hi": 0.021887192467590435,
+        "share_positive": 0.54
+      }
+    },
+    "gbdt+emb_drre+diem": {
+      "auprc": 0.44752768227809575,
+      "n_iter": 57,
+      "caught@500": 306,
+      "caught@1000": 342,
+      "caught@2000": 402,
+      "minus_gbdt": 0.01946116627629052,
+      "ci95_minus_gbdt": {
+        "lo": -0.003860454397857249,
+        "hi": 0.03980226799553071,
+        "share_positive": 0.94
+      }
+    },
+    "group_permutation": {
+      "base_auprc_on_sample": 0.4923570266936154,
+      "drop": {
+        "giao_dich": 0.3883816190658793,
+        "thoi_quen": 0.2606958496589953,
+        "thoi_diem": 0.0007470964036165687,
+        "doi_tac_mang_luoi": 0.006640279117186898,
+        "DRRE": 0.4836774875506993
+      }
+    }
+  },
+  "reproducibility": {
+    "git": {
+      "commit": "bae5bbba015da49d7bd87e57c2ae3e85fd193cda",
+      "dirty": true
+    },
+    "libraries": {
+      "python": "3.10.0",
+      "pandas": "2.2.2",
+      "numpy": "1.26.4",
+      "torch": "2.2.2+cpu",
+      "sklearn": "1.4.2",
+      "qiskit": "1.4.6"
+    },
+    "argv": [
+      "scripts/drre_contribution.py",
+      "--keep-awake",
+      "--out-dir",
+      "reports/r0",
+      "--checkpoint",
+      "models/drre_aml_probe.pt",
+      "--processed-dir",
+      "data/processed_aml"
+    ]
+  },
+  "notes": []
+}

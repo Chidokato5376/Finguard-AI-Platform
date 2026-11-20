@@ -20,6 +20,43 @@ except ImportError:  # pragma: no cover
     torch = None  # type: ignore[assignment]
 
 
+def _to_node_index(
+    series: pd.Series, mapping: dict[str, int], column: str
+) -> np.ndarray:
+    """Ánh xạ một cột định danh sang mảng chỉ số node kiểu int64.
+
+    VÌ SAO PHẢI CÓ HÀM RIÊNG THAY VÌ GỌI THẲNG `.map()`:
+
+    Loader AMLWorld lưu `account_id` và `counterparty_id` dưới dạng
+    Categorical để tiết kiệm bộ nhớ (5,08 triệu dòng nhưng chỉ ~497.000 tài
+    khoản — ghép chuỗi thẳng tốn ~0,5 GB mỗi cột và từng làm tràn RAM 7,4 GB
+    của máy nhóm). Nhưng `Series.map()` trên một Categorical ánh xạ các
+    CATEGORY rồi trả về một Categorical MỚI có categories là số nguyên, nên
+    `.to_numpy()` cho mảng dtype=object. numpy từ chối dùng mảng object làm
+    chỉ số, với thông báo không hề nhắc tới Categorical:
+
+        IndexError: arrays used as indices must be of integer (or boolean) type
+
+    Lỗi này nằm im cho tới lần đầu chạy DRRE trên AMLWorld (2026-10-20), vì
+    PaySim và dữ liệu tổng hợp đều để định danh dưới dạng chuỗi thường.
+
+    Raises:
+        KeyError: có giá trị không nằm trong `mapping` — nghĩa là đồ thị và
+            khung dữ liệu được dựng từ hai tập dòng khác nhau.
+    """
+    mapped = series.map(mapping)
+    if isinstance(mapped.dtype, pd.CategoricalDtype):
+        mapped = mapped.astype("object")
+    if mapped.isna().any():
+        thieu = series[mapped.isna()].astype(str).unique()[:5].tolist()
+        raise KeyError(
+            f"{int(mapped.isna().sum())}/{len(series)} giá trị của cột {column!r} "
+            f"không có trong account_to_idx (vd. {thieu}). Đồ thị và khung dữ liệu "
+            "phải được dựng từ CÙNG một tập dòng."
+        )
+    return mapped.to_numpy(dtype=np.int64)
+
+
 def build_account_graph(
     df: pd.DataFrame, feature_cols: list[str], use_graph: bool = True
 ) -> tuple["torch.Tensor", "torch.Tensor", dict[str, int]]:
@@ -89,7 +126,7 @@ def build_account_graph(
     node_features = np.zeros((len(accounts), feature_dim), dtype=np.float32)
     counts = np.zeros(len(accounts), dtype=np.float32)
 
-    sender_idx = df["account_id"].map(account_to_idx).to_numpy()
+    sender_idx = _to_node_index(df["account_id"], account_to_idx, "account_id")
     feature_values = df[feature_cols].to_numpy(dtype=np.float32)
     np.add.at(node_features, sender_idx, feature_values)
     np.add.at(counts, sender_idx, 1.0)
@@ -99,8 +136,8 @@ def build_account_graph(
 
     edge_index_np = np.stack(
         [
-            df["account_id"].map(account_to_idx).to_numpy(dtype=np.int64),
-            df["counterparty_id"].map(account_to_idx).to_numpy(dtype=np.int64),
+            sender_idx,
+            _to_node_index(df["counterparty_id"], account_to_idx, "counterparty_id"),
         ]
     )
 

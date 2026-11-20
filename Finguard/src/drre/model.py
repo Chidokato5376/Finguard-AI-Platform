@@ -34,6 +34,7 @@ class DRRE(nn.Module):
         embedding_dim: int = 128,
     ) -> None:
         super().__init__()
+        self.embedding_dim = embedding_dim
         self.behavior_memory = BehaviorMemory(input_dim, hidden_dim, num_slots)
         self.attention = ContextAwareAttention(input_dim, key_dim=hidden_dim)
         self.graph_encoder = GraphRelationshipEncoder(
@@ -45,6 +46,10 @@ class DRRE(nn.Module):
         )
         # Đầu dự đoán tự giám sát cho L_pred (Mục 4.6)
         self.predictor = nn.Linear(embedding_dim, embedding_dim)
+
+    def encode_graph(self, node_features: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        """Embedding mọi nút của đồ thị cửa sổ (v2 ghi đè để chuẩn hóa và chọn cột)."""
+        return self.graph_encoder(node_features, edge_index)
 
     def forward(
         self,
@@ -77,7 +82,7 @@ class DRRE(nn.Module):
         # g_all. Kết quả giống hệt, nhưng nhanh hơn ~16 lần (đo thực tế:
         # 11.4 ms -> 0.73 ms mỗi giao dịch).
         if g_all is None:
-            g_all = self.graph_encoder(node_features, edge_index)
+            g_all = self.encode_graph(node_features, edge_index)
         g_t = g_all[node_index]  # (batch, graph_hidden_dim)
 
         e_t, beta = self.fusion(x_t, h_tilde, g_t)
@@ -92,6 +97,32 @@ class DRRE(nn.Module):
             "h_t": h_t,
             "m_t": m_t,
         }
+
+
+def build_drre(model_config: dict) -> nn.Module:
+    """Dựng DRRE đúng kiến trúc từ `model_config` của checkpoint.
+
+    Checkpoint v1 không có khóa "arch" nên vẫn ra DRRE như cũ.
+    """
+    config = dict(model_config)
+    config.pop("risk_hidden", None)
+    # Cách dựng đồ thị (Giai đoạn 2B1, src/drre/past_graph.py) không phải tham số
+    # của mạng mà là thuộc tính đi kèm; checkpoint cũ không có khóa -> "window".
+    graph = {
+        "graph_mode": config.pop("graph_mode", "window"),
+        "graph_lookback_hours": config.pop("graph_lookback_hours", None),
+        "graph_block": config.pop("graph_block", None),
+        "graph_fanout": config.pop("graph_fanout", None),
+    }
+    if config.pop("arch", "v1") == "v2":
+        from src.drre.model_v2 import DRREv2
+
+        model = DRREv2(**config)
+    else:
+        model = DRRE(**config)
+    for key, value in graph.items():
+        setattr(model, key, value)
+    return model
 
 
 def main() -> None:

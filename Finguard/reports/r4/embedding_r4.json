@@ -1,0 +1,23 @@
+{
+  "checkpoint": "models/drre_r4_hi_small.pt",
+  "arch": "DRREv2",
+  "embedding_dim": 128,
+  "all": {
+    "rows": 114758,
+    "participation_ratio": 6.662692294576619,
+    "effective_rank": 8.546822634986862,
+    "dims_90": 7,
+    "dims_99": 17,
+    "top1_share": 0.25112503890710847
+  },
+  "positives": {
+    "rows": 760,
+    "participation_ratio": 3.6222892984327912,
+    "effective_rank": 5.567442854278564,
+    "dims_90": 6,
+    "dims_99": 14,
+    "top1_share": 0.45522320831358504
+  },
+  "mean_norm_pos": 7.1095781326293945,
+  "mean_norm_neg": 4.937760353088379
+}
