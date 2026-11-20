@@ -37,7 +37,7 @@ val; **tập test không được đọc**.
 1. Đẩy repo (gồm thư mục `Finguard/prototype/` và `Finguard/src/`) lên GitHub.
 2. Vào https://share.streamlit.io → **Create app** → chọn repo, nhánh, và
    **Main file path** = `Finguard/prototype/app.py`.
-3. **Advanced settings** → Python **3.10**. Streamlit tự dùng `Finguard/prototype/requirements.txt`
+3. **Advanced settings** → Python **3.12** (3.10, 3.11 cũng được). Streamlit tự dùng `Finguard/prototype/requirements.txt`
    (cùng thư mục với tệp chính).
 4. Deploy (lần đầu ~5–10 phút vì cài torch). Ghi đường dẫn `https://<ten>.streamlit.app` vào báo cáo và
    tài liệu hướng dẫn.
